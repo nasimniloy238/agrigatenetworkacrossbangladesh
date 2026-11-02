@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agrigate — Our Network Across Bangladesh</title>
+  <link rel="stylesheet" href="style.css?v=23" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- ======================================================
+       INTERACTIVE 3D MAP SECTION
+       Drop this entire <section> into your landing page.
+       Include style.css, main.js, and data.js alongside it.
+       ====================================================== -->
+  <section class="map-section" id="network-map">
+
+    <!-- Loading Screen -->
+    <div class="map-loader">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Loading Network Map...</div>
+    </div>
+
+    <!-- Section Header -->
+    <div class="map-header">
+      <h2>Our Network Across Bangladesh</h2>
+      <p>Click on any branch marker to see details</p>
+    </div>
+
+    <!-- Three.js Canvas -->
+    <canvas id="map-canvas"></canvas>
+
+    <!-- HQ Badge (positioned dynamically by JS) -->
+    <div class="hq-badge">
+      <span class="hq-badge-dot"></span>
+      <span class="hq-badge-text">Head Office</span>
+    </div>
+
+    <!-- Reset View Button -->
+    <button class="reset-view-btn">
+      <svg viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </svg>
+      Reset View
+    </button>
+
+    <!-- Editor Toolbar Toggle Button -->
+    <button class="editor-toggle-btn" id="editor-toggle-btn" title="Open 3D Model Editor">
+      <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6-8.6 8.6a2 2 0 0 1-.88.52l-3.9 1a1 1 0 0 1-1.22-1.22l1-3.9a2 2 0 0 1 .52-.88l8.6-8.6 1.6 1.6a1 1 0 0 0 1.4 0l1.8-1.8a3 3 0 0 1 4.24 0l.4.4a3 3 0 0 1 0 4.24l-1.6 1.6z"/></svg>
+      <span>3D Editor</span>
+    </button>
+
+    <!-- 3D Model Editor Toolbar Panel -->
+    <div class="model-editor-panel" id="model-editor-panel">
+      <div class="editor-header">
+        <div class="editor-title">
+          <svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <span>3D Model Editor</span>
+        </div>
+        <button class="editor-close-btn" id="editor-close-btn" title="Close Editor">✕</button>
+      </div>
+
+      <div class="editor-body">
+        <!-- Model Selection Dropdown -->
+        <div class="editor-group">
+          <label class="editor-label" for="editor-model-select">Select 3D Model / Hub:</label>
+          <select id="editor-model-select" class="editor-select">
+            <option value="">-- Choose a branch model --</option>
+          </select>
+          <div class="editor-hint">💡 Tip: You can also click directly on any 3D model on the map to select it.</div>
+        </div>
+
+        <!-- 3D Gizmo Transform Mode Switcher -->
+        <div class="editor-mode-bar">
+          <button class="editor-mode-btn active" data-mode="translate" id="btn-mode-translate" title="Shortcut: W">
+            <svg viewBox="0 0 24 24"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
+            Move (W)
+          </button>
+          <button class="editor-mode-btn" data-mode="rotate" id="btn-mode-rotate" title="Shortcut: E">
+            <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Rotate (E)
+          </button>
+          <button class="editor-mode-btn" data-mode="scale" id="btn-mode-scale" title="Shortcut: R">
+            <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            Scale (R)
+          </button>
+        </div>
+
+        <!-- Position Controls (X, Y, Z) -->
+        <div class="editor-section">
+          <div class="editor-section-header">
+            <span>Position Offset</span>
+            <button class="editor-mini-btn" id="btn-reset-pos" title="Reset Position to Default">↺ Reset</button>
+          </div>
+          <div class="editor-field-row">
+            <span class="axis-badge axis-x">X</span>
+            <input type="range" id="prop-pos-x-range" min="-1.5" max="1.5" step="0.01" value="0" />
+            <input type="number" id="prop-pos-x-num" step="0.01" value="0" />
+          </div>
+          <div class="editor-field-row">
+            <span class="axis-badge axis-y">Y</span>
+            <input type="range" id="prop-pos-y-range" min="0" max="1.0" step="0.01" value="0.10" />
+            <input type="number" id="prop-pos-y-num" step="0.01" value="0.10" />
+          </div>
+          <div class="editor-field-row">
+            <span class="axis-badge axis-z">Z</span>
+            <input type="range" id="prop-pos-z-range" min="-1.5" max="1.5" step="0.01" value="0" />
+            <input type="number" id="prop-pos-z-num" step="0.01" value="0" />
+          </div>
+        </div>
+
+        <!-- Rotation Controls (X, Y, Z in Degrees) -->
+        <div class="editor-section">
+          <div class="editor-section-header">
+            <span>Rotation (Degrees)</span>
+            <button class="editor-mini-btn" id="btn-reset-rot" title="Reset Rotation to Default">↺ Reset</button>
+          </div>
+          <div class="editor-field-row">
+            <span class="axis-badge axis-x">X</span>
+            <input type="range" id="prop-rot-x-range" min="-180" max="180" step="1" value="0" />
+            <input type="number" id="prop-rot-x-num" step="1" value="0" />
+            <span class="axis-unit">°</span>
+          </div>
+          <div class="editor-field-row">
+            <span class="axis-badge axis-y">Y</span>
+            <input type="range" id="prop-rot-y-range" min="-180" max="180" step="1" value="-90" />
+            <input type="number" id="prop-rot-y-num" step="1" value="-90" />
+            <span class="axis-unit">°</span>
+          </div>
+          <div class="editor-field-row">
+            <span class="axis-badge axis-z">Z</span>
+            <input type="range" id="prop-rot-z-range" min="-180" max="180" step="1" value="0" />
+            <input type="number" id="prop-rot-z-num" step="1" value="0" />
+            <span class="axis-unit">°</span>
+          </div>
+        </div>
+
+        <!-- Scale Controls -->
+        <div class="editor-section">
+          <div class="editor-section-header">
+            <span>Model Scale</span>
+            <button class="editor-mini-btn" id="btn-reset-scale" title="Reset Scale to Default">↺ Reset</button>
+          </div>
+          <div class="editor-field-row">
+            <span class="axis-badge axis-scale">S</span>
+            <input type="range" id="prop-scale-range" min="0.005" max="0.50" step="0.005" value="0.20" />
+            <input type="number" id="prop-scale-num" step="0.005" value="0.20" />
+          </div>
+          <label class="editor-checkbox-row">
+            <input type="checkbox" id="prop-scale-all-type" />
+            <span>Apply this scale to all branches of same category</span>
+          </label>
+        </div>
+
+        <!-- Actions -->
+        <div class="editor-actions">
+          <button class="editor-act-btn codebase" id="btn-editor-save-codebase" title="Bake current landmark positions permanently into project files so all browsers and mobile devices see them">
+            <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            💾 Save to Codebase (Global)
+          </button>
+          <button class="editor-act-btn save" id="btn-editor-save" title="Save to local browser storage">
+            Save (Browser Only)
+          </button>
+          <div class="editor-actions-row">
+            <button class="editor-act-btn secondary" id="btn-editor-copy">📋 Copy JSON</button>
+            <button class="editor-act-btn secondary" id="btn-editor-download">📥 Export File</button>
+          </div>
+          <button class="editor-act-btn danger" id="btn-editor-reset-all">↺ Reset All Saved</button>
+        </div>
+
+        <div class="editor-toast" id="editor-toast">Changes saved to browser storage!</div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <div class="legend-item">
+        <span class="legend-dot hq"></span>
+        Head Office (Dhaka)
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot cbf"></span>
+        CBF
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot cff"></span>
+        CFF
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot egg-warehouse"></span>
+        Egg Warehouse
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot factory"></span>
+        Agrigate Factories
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot supply-chain"></span>
+        Supply Chain
+      </div>
+    </div>
+
+  </section>
+
+  <!-- Main JS (ES Module) with cache-busting -->
+  <script type="module" src="main.js?v=28"></script>
+
+</body>
+</html>
