@@ -66,7 +66,7 @@ export const MAP_CONFIG = {
   // Color theme — Dark Futuristic Theme with Deep Emerald Map
   theme: {
     mapColor: "#1e3c32",              // Deep dark emerald surface color
-    mapDepthColor: "#6e4730",         // Warm Leather Brown vertical slab depth
+    mapDepthColor: "#84cc16",         // Fresh vibrant Lime Green vertical slab depth
     districtHoverColor: "#145946",     // Hover state (brighter emerald)
     districtSelectedColor: "#1b6a55",  // Active/selected district
     mapEdgeColor: "#00f7ff",         // Crisp electric cyan border outlines

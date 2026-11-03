@@ -7,8 +7,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=39';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=39';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=40';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=40';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -700,7 +700,7 @@ function setDistrictMeshColor(mesh, hexColor, isHighlight = false) {
   }
   if (side && side.material) {
     if (isHighlight) {
-      const c = new THREE.Color(side.userData.defaultColor).clone().multiplyScalar(1.35);
+      const c = new THREE.Color(side.userData.defaultColor).clone().multiplyScalar(1.20);
       side.material.color.copy(c);
     } else {
       side.material.color.set(side.userData.defaultColor);
@@ -724,7 +724,7 @@ function resetDistrictMeshColor(mesh) {
 function createDistrictMap() {
   const { theme } = MAP_CONFIG;
   const SLAB_DEPTH = 0.20;
-  const sideColor = theme.mapDepthColor ? new THREE.Color(theme.mapDepthColor).getHex() : 0x6e4730; // Warm Leather Brown 3D slab depth
+  const sideColor = theme.mapDepthColor ? new THREE.Color(theme.mapDepthColor).getHex() : 0x84cc16; // Fresh Lime Green 3D slab depth
 
   BANGLADESH_GEO.districts.forEach(dData => {
     dData.rings.forEach((ring, rIdx) => {
