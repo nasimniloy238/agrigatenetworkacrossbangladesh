@@ -6,8 +6,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=31';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=31';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=32';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=32';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -262,6 +262,122 @@ const GLOW_CONFIG = {
   'Agrigate Factories':{ hex: 0x00e676, css: 'rgba(0, 230, 118, 0.50)', height: 0.32 },
   'Supply Chain':      { hex: 0xff7a00, css: 'rgba(255, 122, 0, 0.50)',   height: 0.42 },
 };
+
+// ============================================================
+//  FLOATING 3D AGRIGATE LOGO MEDALLION (360° SPIN)
+// ============================================================
+let LOGO_TEXTURE = null;
+let LOGO_SHARED_RIM_GEO = null;
+let LOGO_SHARED_FACE_GEO = null;
+let LOGO_FACE_MAT = null;
+const LOGO_RIM_MATS = {};
+
+function getLogoTexture() {
+  if (LOGO_TEXTURE) return LOGO_TEXTURE;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  // Initial crisp white circular medallion disc with emerald ring
+  ctx.beginPath();
+  ctx.arc(256, 256, 248, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = '#2ecc71';
+  ctx.stroke();
+
+  LOGO_TEXTURE = new THREE.CanvasTexture(canvas);
+  LOGO_TEXTURE.generateMipmaps = true;
+  LOGO_TEXTURE.minFilter = THREE.LinearMipmapLinearFilter;
+  LOGO_TEXTURE.colorSpace = THREE.SRGBColorSpace;
+
+  // Asynchronously load agrigatelogo.svg
+  const img = new Image();
+  img.onload = () => {
+    ctx.clearRect(0, 0, 512, 512);
+
+    // Crisp white medallion base
+    ctx.beginPath();
+    ctx.arc(256, 256, 248, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    // Crisp emerald border ring
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = '#2ecc71';
+    ctx.stroke();
+
+    // Draw SVG emblem
+    ctx.drawImage(img, 44, 44, 424, 424);
+    LOGO_TEXTURE.needsUpdate = true;
+  };
+  img.onerror = () => {
+    console.warn('Could not load assets/agrigatelogo.svg');
+  };
+  img.src = 'assets/agrigatelogo.svg';
+
+  return LOGO_TEXTURE;
+}
+
+function createFloatingLogoMedallion(branchType = 'CBF') {
+  const radius = 0.135;
+  const thickness = 0.024;
+
+  if (!LOGO_SHARED_RIM_GEO) {
+    LOGO_SHARED_RIM_GEO = new THREE.CylinderGeometry(radius, radius, thickness, 32, 1, true);
+    LOGO_SHARED_RIM_GEO.rotateX(Math.PI / 2);
+  }
+  if (!LOGO_SHARED_FACE_GEO) {
+    LOGO_SHARED_FACE_GEO = new THREE.CircleGeometry(radius, 32);
+  }
+
+  const tex = getLogoTexture();
+  if (!LOGO_FACE_MAT) {
+    LOGO_FACE_MAT = new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 0.35,
+      metalness: 0.10,
+      side: THREE.FrontSide,
+    });
+  }
+
+  const rimColor = (branchType === 'CFF') ? 0x00e5ff : 0x2ecc71;
+  if (!LOGO_RIM_MATS[rimColor]) {
+    LOGO_RIM_MATS[rimColor] = new THREE.MeshStandardMaterial({
+      color: rimColor,
+      metalness: 0.75,
+      roughness: 0.20,
+    });
+  }
+
+  const group = new THREE.Group();
+
+  // Cylindrical metallic rim
+  const rimMesh = new THREE.Mesh(LOGO_SHARED_RIM_GEO, LOGO_RIM_MATS[rimColor]);
+  group.add(rimMesh);
+
+  // Front face (facing +Z)
+  const frontMesh = new THREE.Mesh(LOGO_SHARED_FACE_GEO, LOGO_FACE_MAT);
+  frontMesh.position.z = thickness / 2 + 0.001;
+  group.add(frontMesh);
+
+  // Back face (facing -Z, rotated 180° around Y so logo is unmirrored)
+  const backMesh = new THREE.Mesh(LOGO_SHARED_FACE_GEO, LOGO_FACE_MAT);
+  backMesh.position.z = -thickness / 2 - 0.001;
+  backMesh.rotation.y = Math.PI;
+  group.add(backMesh);
+
+  group.userData = {
+    isMedallion: true,
+    baseScale: 1.0,
+  };
+
+  return group;
+}
 
 // Stylized procedural 3D Box Factory landmark for Agrigate Factories
 function createFactoryBoxMesh() {
@@ -874,6 +990,16 @@ function createSingleMarker(worldPos, data) {
   glowSprite.scale.set(0.40, 0.40, 1.0);
   group.add(glowSprite);
 
+  // Floating 3D Agrigate Logo Medallion over Branch.glb landmarks (CBF & CFF)
+  let logoMedallion = null;
+  if (type === 'CBF' || type === 'CFF') {
+    logoMedallion = createFloatingLogoMedallion(type);
+    const my = modelMesh.position.y;
+    logoMedallion.position.set(modelMesh.position.x, my + 0.38, modelMesh.position.z);
+    logoMedallion.userData.baseY = my + 0.38;
+    group.add(logoMedallion);
+  }
+
   group.userData = {
     isMarker: true,
     isHQ: isHQ,
@@ -887,6 +1013,7 @@ function createSingleMarker(worldPos, data) {
     modelMesh: modelMesh,
     glowSprite: glowSprite,
     glowLight: null,
+    logoMedallion: logoMedallion,
     baseScale: modelMesh.scale.x,
     baseColor: colorVal,
   };
@@ -1059,6 +1186,16 @@ function animate() {
       glow.scale.set(gs, gs, 1.0);
       glow.material.opacity = 0.45 + Math.sin(elapsed * 2.0 + marker.position.z * 2) * 0.05;
     }
+
+    const medallion = marker.userData.logoMedallion;
+    if (medallion) {
+      // Slow 360-degree rotation (approx 12s per full turn with natural spatial phase offset)
+      medallion.rotation.y = (elapsed * 0.55 + marker.position.x * 0.3) % (Math.PI * 2);
+
+      // Micro levitation bobbing (smooth sine wave)
+      const baseY = medallion.userData.baseY || 0.48;
+      medallion.position.y = baseY + Math.sin(elapsed * 2.2 + marker.position.x * 2) * 0.02;
+    }
   });
 
   // Light beams animation (smooth continuous laser flow with zero per-frame allocations)
@@ -1182,6 +1319,13 @@ function syncMarkerAttachments(markerGroup) {
   }
   if (glowSprite) {
     glowSprite.position.set(px, py + glowCfg.height - 0.02, pz);
+  }
+
+  // Floating Agrigate logo medallion tracks model in X, Y, Z
+  const logoMedallion = markerGroup.userData.logoMedallion;
+  if (logoMedallion) {
+    logoMedallion.position.set(px, py + 0.38, pz);
+    logoMedallion.userData.baseY = py + 0.38;
   }
 }
 
@@ -1888,10 +2032,16 @@ function onMapHover(event) {
       if (group.userData.modelMesh) {
         group.userData.modelMesh.scale.setScalar(group.userData.baseScale || 1.0);
       }
+      if (group.userData.logoMedallion) {
+        group.userData.logoMedallion.scale.setScalar(1.0);
+      }
     });
     const hitMarker = markerHits[0].object.userData.parentMarker;
     if (hitMarker?.userData.modelMesh) {
       hitMarker.userData.modelMesh.scale.setScalar((hitMarker.userData.baseScale || 1.0) * 1.25);
+    }
+    if (hitMarker?.userData.logoMedallion) {
+      hitMarker.userData.logoMedallion.scale.setScalar(1.22);
     }
     return;
   }
@@ -1919,6 +2069,9 @@ function onMapHover(event) {
     markerObjects.forEach(group => {
       if (group.userData.modelMesh) {
         group.userData.modelMesh.scale.setScalar(group.userData.baseScale || 1.0);
+      }
+      if (group.userData.logoMedallion) {
+        group.userData.logoMedallion.scale.setScalar(1.0);
       }
     });
   }
