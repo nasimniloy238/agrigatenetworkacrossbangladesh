@@ -7,8 +7,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=37';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=37';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=38';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=38';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -28,6 +28,15 @@ let hqBadge, resetBtn;
 let clock;
 let activeFocusLight = null;
 let activeMarkerGroup = null;
+
+// Category Navigation State
+let activeNavCategory = null;
+let categoryNavMarkers = [];
+let currentNavIndex = 0;
+let navArrowsGroup = null;
+let navBranchIndicator = null;
+let navArrowPrev = null;
+let navArrowNext = null;
 
 // Auto-Panning State
 let isAutoPanning = false;
@@ -595,6 +604,7 @@ async function init() {
     createBeams();
     setupHQBadge();
     setupResetButton();
+    setupCategoryNavigation();
     setupModelEditor();
 
     // Event listeners
@@ -1788,7 +1798,7 @@ function setupResetButton() {
 
 function resetToTopDown() {
   stopAutoPanning();
-  closePopup();
+  closePopup(true);
   isZoomedIn = false;
   resetBtn?.classList.remove('visible');
 
@@ -1800,6 +1810,89 @@ function resetToTopDown() {
 
   const fitPos = getFitCameraPosition();
   animateCamera(fitPos, new THREE.Vector3(0, 0, 0), 1000);
+}
+
+// ============================================================
+//  CATEGORY NAVIGATION (UI HUD LEGEND & ARROW SWITCHER)
+// ============================================================
+function setupCategoryNavigation() {
+  navArrowsGroup = document.getElementById('branch-nav-cluster');
+  navBranchIndicator = document.getElementById('nav-branch-indicator');
+  navArrowPrev = document.getElementById('nav-arrow-prev');
+  navArrowNext = document.getElementById('nav-arrow-next');
+
+  navArrowPrev?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    stepCategoryNav(-1);
+  });
+
+  navArrowNext?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    stepCategoryNav(1);
+  });
+
+  // Clickable HUD Legend Items
+  document.querySelectorAll('.legend-item[data-category]').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cat = item.dataset.category;
+      selectCategory(cat);
+    });
+  });
+
+  // Keyboard navigation for active category
+  window.addEventListener('keydown', (e) => {
+    if (!isZoomedIn || isEditorActive) return;
+    if (!categoryNavMarkers || categoryNavMarkers.length <= 1) return;
+    if (e.key === 'ArrowLeft') {
+      stepCategoryNav(-1);
+    } else if (e.key === 'ArrowRight') {
+      stepCategoryNav(1);
+    }
+  });
+}
+
+function selectCategory(categoryName) {
+  if (!categoryName) return;
+
+  // Filter matching marker objects
+  let matches = [];
+  if (categoryName === 'Headquarters') {
+    matches = markerObjects.filter(m => m.userData.isHQ || m.userData.data?.type === 'Headquarters');
+  } else {
+    matches = markerObjects.filter(m => m.userData.data?.type === categoryName);
+  }
+
+  if (matches.length === 0) return;
+
+  activeNavCategory = categoryName;
+  categoryNavMarkers = matches;
+  currentNavIndex = 0;
+
+  // Highlight active legend item
+  document.querySelectorAll('.legend-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.category === categoryName);
+  });
+
+  updateNavUI();
+  onMarkerClick(categoryNavMarkers[0]);
+}
+
+function stepCategoryNav(direction) {
+  if (!categoryNavMarkers || categoryNavMarkers.length === 0) return;
+  currentNavIndex = (currentNavIndex + direction + categoryNavMarkers.length) % categoryNavMarkers.length;
+  updateNavUI();
+  onMarkerClick(categoryNavMarkers[currentNavIndex]);
+}
+
+function updateNavUI() {
+  if (!navArrowsGroup || !navBranchIndicator) return;
+  if (categoryNavMarkers && categoryNavMarkers.length > 0) {
+    navBranchIndicator.textContent = `${currentNavIndex + 1} / ${categoryNavMarkers.length}`;
+    navArrowsGroup.classList.add('visible');
+  } else {
+    navArrowsGroup.classList.remove('visible');
+  }
 }
 
 // ============================================================
@@ -1977,13 +2070,30 @@ function setMarkerActiveState(markerGroup, isActive) {
 
 function onMarkerClick(markerGroup) {
   stopAutoPanning();
-  closePopup();
+  closePopup(false);
   const data = markerGroup.userData.data;
   const isHQ = markerGroup.userData.isHQ;
   const isBranch = !markerGroup.userData.isHQ && !markerGroup.userData.isFeedmill && !markerGroup.userData.isBreedersFarm;
 
   activeMarkerGroup = markerGroup;
   setMarkerActiveState(markerGroup, true);
+
+  // Synchronize category navigation state
+  const markerCat = isHQ ? 'Headquarters' : (data.type || 'Supply Chain');
+  if (activeNavCategory !== markerCat) {
+    activeNavCategory = markerCat;
+    if (isHQ) {
+      categoryNavMarkers = markerObjects.filter(m => m.userData.isHQ || m.userData.data?.type === 'Headquarters');
+    } else {
+      categoryNavMarkers = markerObjects.filter(m => m.userData.data?.type === markerCat);
+    }
+  }
+  const fIdx = categoryNavMarkers.indexOf(markerGroup);
+  currentNavIndex = fIdx >= 0 ? fIdx : 0;
+  updateNavUI();
+  document.querySelectorAll('.legend-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.category === activeNavCategory);
+  });
 
   const worldPos = getModelWorldPos(markerGroup);
 
@@ -2218,7 +2328,7 @@ function updatePopupPosition() {
   }
 }
 
-function closePopup() {
+function closePopup(clearNav = true) {
   stopAutoPanning();
   if (activeMarkerGroup) {
     setMarkerActiveState(activeMarkerGroup, false);
@@ -2230,6 +2340,15 @@ function closePopup() {
   }
   if (activeFocusLight) {
     activeFocusLight.intensity = 0;
+  }
+  if (clearNav) {
+    if (navArrowsGroup) {
+      navArrowsGroup.classList.remove('visible');
+    }
+    document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active'));
+    activeNavCategory = null;
+    categoryNavMarkers = [];
+    currentNavIndex = 0;
   }
 }
 

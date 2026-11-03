@@ -47,17 +47,28 @@
       <span class="hq-badge-text">Head Office</span>
     </div>
 
-    <!-- Reset View Button -->
-    <button class="reset-view-btn">
-      <svg viewBox="0 0 24 24">
-        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-        <path d="M3 3v5h5" />
-      </svg>
-      Reset View
-    </button>
+    <!-- Bottom-Right Controls: Branch Category Navigation & Reset View -->
+    <div class="map-controls-group" id="map-controls-group">
+      <div class="branch-nav-cluster" id="branch-nav-cluster">
+        <button class="nav-arrow-btn" id="nav-arrow-prev" title="Previous Location (Left Arrow)">
+          <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span class="nav-branch-indicator" id="nav-branch-indicator">1 / 1</span>
+        <button class="nav-arrow-btn" id="nav-arrow-next" title="Next Location (Right Arrow)">
+          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <button class="reset-view-btn" id="reset-view-btn">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+        Reset View
+      </button>
+    </div>
 
-    <!-- Editor Toolbar Toggle Button -->
-    <button class="editor-toggle-btn" id="editor-toggle-btn" title="Open 3D Model Editor">
+    <!-- Editor Toolbar Toggle Button (Hidden from UI; code preserved) -->
+    <button class="editor-toggle-btn" id="editor-toggle-btn" title="Open 3D Model Editor" style="display: none;">
       <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6-8.6 8.6a2 2 0 0 1-.88.52l-3.9 1a1 1 0 0 1-1.22-1.22l1-3.9a2 2 0 0 1 .52-.88l8.6-8.6 1.6 1.6a1 1 0 0 0 1.4 0l1.8-1.8a3 3 0 0 1 4.24 0l.4.4a3 3 0 0 1 0 4.24l-1.6 1.6z"/></svg>
       <span>3D Editor</span>
     </button>
@@ -186,27 +197,27 @@
 
     <!-- Legend -->
     <div class="map-legend">
-      <div class="legend-item">
+      <div class="legend-item" data-category="Headquarters" title="View Head Office (Dhaka)">
         <span class="legend-dot hq"></span>
         Head Office (Dhaka)
       </div>
-      <div class="legend-item">
+      <div class="legend-item" data-category="CBF" title="Browse all 11 CBF Branches">
         <span class="legend-dot cbf"></span>
         CBF
       </div>
-      <div class="legend-item">
+      <div class="legend-item" data-category="CFF" title="Browse CFF Branch">
         <span class="legend-dot cff"></span>
         CFF
       </div>
-      <div class="legend-item">
+      <div class="legend-item" data-category="Egg Warehouse" title="Browse 3 Egg Warehouses">
         <span class="legend-dot egg-warehouse"></span>
         Egg Warehouse
       </div>
-      <div class="legend-item">
+      <div class="legend-item" data-category="Agrigate Factories" title="Browse 4 Agrigate Factories">
         <span class="legend-dot factory"></span>
         Agrigate Factories
       </div>
-      <div class="legend-item">
+      <div class="legend-item" data-category="Supply Chain" title="Browse 17 Supply Chain Hubs">
         <span class="legend-dot supply-chain"></span>
         Supply Chain
       </div>
@@ -215,7 +226,7 @@
   </section>
 
   <!-- Main JS (ES Module) with cache-busting -->
-  <script type="module" src="main.js?v=37"></script>
+  <script type="module" src="main.js?v=38"></script>
 
 </body>
 </html>

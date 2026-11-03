@@ -286,12 +286,95 @@
   50% { opacity: 0.5; transform: scale(0.7); }
 }
 
-/* --- Reset View Button --- */
-.reset-view-btn {
+/* --- Floating Map Controls (Navigation Cluster + Reset View) --- */
+.map-controls-group {
   position: absolute;
   bottom: 24px;
   right: 24px;
   z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.map-controls-group > * {
+  pointer-events: auto;
+}
+
+.branch-nav-cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(10, 20, 40, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 10px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+.branch-nav-cluster.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.nav-arrow-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.nav-arrow-btn:hover {
+  background: rgba(0, 229, 255, 0.25);
+  border-color: rgba(0, 229, 255, 0.5);
+  transform: scale(1.06);
+}
+
+.nav-arrow-btn:active {
+  transform: scale(0.95);
+}
+
+.nav-arrow-btn svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-branch-indicator {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.4px;
+  padding: 0 4px;
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* --- Reset View Button --- */
+.reset-view-btn {
+  position: relative;
   background: rgba(10, 20, 40, 0.8);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(0, 229, 255, 0.2);
@@ -309,6 +392,7 @@
   visibility: hidden;
   transform: translateY(10px);
   font-family: inherit;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .reset-view-btn.visible {
@@ -359,6 +443,24 @@
   color: rgba(255, 255, 255, 0.65);
   font-weight: 500;
   letter-spacing: 0.3px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.legend-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(2px);
+}
+
+.legend-item.active {
+  color: #ffffff;
+  background: rgba(0, 229, 255, 0.16);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  font-weight: 600;
 }
 
 .legend-dot {
@@ -385,8 +487,8 @@
 }
 
 .legend-dot.factory {
-  background: #00e676;
-  box-shadow: 0 0 6px rgba(0, 230, 118, 0.7);
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
 }
 
 .legend-dot.supply-chain,
@@ -467,11 +569,25 @@
     left: 16px;
   }
 
-  .reset-view-btn {
+  .map-controls-group {
     bottom: 16px;
     right: 16px;
+    gap: 6px;
+  }
+
+  .reset-view-btn {
     padding: 8px 14px;
     font-size: 0.78rem;
+  }
+
+  .branch-nav-cluster {
+    padding: 5px 8px;
+    gap: 4px;
+  }
+
+  .nav-arrow-btn {
+    width: 24px;
+    height: 24px;
   }
 }
 
