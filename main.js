@@ -6,8 +6,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=30';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=30';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=31';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=31';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -26,6 +26,11 @@ let selectedDistrict = null;
 let hqBadge, resetBtn;
 let clock;
 let activeFocusLight = null;
+
+// Auto-Panning State
+let isAutoPanning = false;
+let autoPanResumeTimer = null;
+let cameraAnimId = null;
 
 // 3D Model Editor State
 let transformControls;
@@ -434,6 +439,11 @@ async function init() {
     controls.maxDistance = 100;
     controls.maxPolarAngle = Math.PI / 2.05;
     controls.target.set(0, 0, 0);
+    controls.autoRotate = false;
+    controls.autoRotateSpeed = 0.6;
+
+    controls.addEventListener('start', onControlsInteractionStart);
+    controls.addEventListener('end', onControlsInteractionEnd);
 
     // Raycaster
     raycaster = new THREE.Raycaster();
@@ -1335,6 +1345,7 @@ function setupModelEditor() {
   function toggleEditor(open) {
     isEditorActive = (typeof open === 'boolean') ? open : !isEditorActive;
     if (isEditorActive) {
+      stopAutoPanning();
       panel.classList.add('visible');
       toggleBtn.classList.add('active');
       closePopup();
@@ -1611,6 +1622,7 @@ function setupResetButton() {
 }
 
 function resetToTopDown() {
+  stopAutoPanning();
   closePopup();
   isZoomedIn = false;
   resetBtn?.classList.remove('visible');
@@ -1626,9 +1638,57 @@ function resetToTopDown() {
 }
 
 // ============================================================
+//  AUTO SLOW CAMERA PANNING (ORBITAL SWEEP)
+// ============================================================
+function onControlsInteractionStart() {
+  if (autoPanResumeTimer) {
+    clearTimeout(autoPanResumeTimer);
+    autoPanResumeTimer = null;
+  }
+  if (isAutoPanning) {
+    controls.autoRotate = false;
+  }
+}
+
+function onControlsInteractionEnd() {
+  if (isAutoPanning && isZoomedIn && activePopup && !isEditorActive) {
+    autoPanResumeTimer = setTimeout(() => {
+      if (isAutoPanning && isZoomedIn && activePopup && !isEditorActive) {
+        controls.autoRotate = true;
+      }
+    }, 1500);
+  }
+}
+
+function startAutoPanning(markerGroup) {
+  if (isEditorActive) return;
+  if (autoPanResumeTimer) {
+    clearTimeout(autoPanResumeTimer);
+    autoPanResumeTimer = null;
+  }
+  isAutoPanning = true;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.6;
+}
+
+function stopAutoPanning() {
+  isAutoPanning = false;
+  controls.autoRotate = false;
+  if (autoPanResumeTimer) {
+    clearTimeout(autoPanResumeTimer);
+    autoPanResumeTimer = null;
+  }
+}
+
+// ============================================================
 //  CAMERA SMOOTH TWEENING
 // ============================================================
-function animateCamera(targetPos, lookAtTarget, duration = 800) {
+function animateCamera(targetPos, lookAtTarget, duration = 800, onComplete = null) {
+  if (cameraAnimId) {
+    cancelAnimationFrame(cameraAnimId);
+    cameraAnimId = null;
+  }
+
   const startPos = camera.position.clone();
   const startTarget = controls.target.clone();
   const startTime = performance.now();
@@ -1646,11 +1706,16 @@ function animateCamera(targetPos, lookAtTarget, duration = 800) {
     controls.target.lerpVectors(startTarget, lookAtTarget, ease);
 
     if (progress < 1) {
-      requestAnimationFrame(step);
+      cameraAnimId = requestAnimationFrame(step);
+    } else {
+      cameraAnimId = null;
+      if (typeof onComplete === 'function') {
+        onComplete();
+      }
     }
   }
 
-  requestAnimationFrame(step);
+  cameraAnimId = requestAnimationFrame(step);
 }
 
 // ============================================================
@@ -1731,6 +1796,7 @@ function onMapClick(event) {
 }
 
 function onMarkerClick(markerGroup) {
+  stopAutoPanning();
   closePopup();
   const data = markerGroup.userData.data;
   const isHQ = markerGroup.userData.isHQ;
@@ -1746,7 +1812,7 @@ function onMarkerClick(markerGroup) {
     activeFocusLight.intensity = 0.8;
   }
 
-  // Smooth cinematic 3D zoom angle
+  // Smooth cinematic 3D zoom angle centered on branch
   const cameraTarget = worldPos.clone();
   const cameraPos = new THREE.Vector3(
     worldPos.x + 2.0,
@@ -1757,11 +1823,16 @@ function onMarkerClick(markerGroup) {
   isZoomedIn = true;
   resetBtn?.classList.add('visible');
 
-  animateCamera(cameraPos, cameraTarget, 850);
-  setTimeout(() => showPopup(markerGroup, data, isHQ), 500);
+  animateCamera(cameraPos, cameraTarget, 850, () => {
+    if (isZoomedIn && !isEditorActive) {
+      startAutoPanning(markerGroup);
+    }
+  });
+  setTimeout(() => showPopup(markerGroup, data, isHQ), 450);
 }
 
 function zoomToDistrict(rawMesh) {
+  stopAutoPanning();
   closePopup();
   const districtMesh = rawMesh.userData.topMesh || rawMesh;
   if (selectedDistrict && selectedDistrict !== districtMesh) {
@@ -1952,6 +2023,7 @@ function updatePopupPosition() {
 }
 
 function closePopup() {
+  stopAutoPanning();
   if (activePopup) {
     activePopup.element.classList.remove('visible');
     activePopup = null;
