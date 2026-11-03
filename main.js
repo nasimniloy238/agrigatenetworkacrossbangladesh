@@ -7,8 +7,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=34';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=34';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=35';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=35';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -281,21 +281,21 @@ async function loadLogoModelTemplate() {
     const svgData = await svgLoader.loadAsync('assets/agrigatelogo.svg');
     const logoGroup = new THREE.Group();
 
-    // Palette materials matching SVG artwork
+    // Palette materials matching SVG artwork with high-sheen radium polish
     const whiteMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      roughness: 0.35,
-      metalness: 0.15,
+      roughness: 0.18,
+      metalness: 0.26,
     });
     const limeMat = new THREE.MeshStandardMaterial({
       color: 0xbcd978,
-      roughness: 0.35,
-      metalness: 0.15,
+      roughness: 0.18,
+      metalness: 0.26,
     });
     const deepGreenMat = new THREE.MeshStandardMaterial({
       color: 0x407939,
-      roughness: 0.35,
-      metalness: 0.15,
+      roughness: 0.18,
+      metalness: 0.26,
     });
 
     // Extrusion settings:
@@ -1967,9 +1967,10 @@ function setMarkerActiveState(markerGroup, isActive) {
     logoMedallion.traverse((child) => {
       if (child.isMesh && child.material) {
         if (isActive) {
-          const glowColor = child.userData.isPetal ? 0x2ecc71 : 0x00e5ff;
+          // Phosphorescent radium glow colors
+          const glowColor = child.userData.isPetal ? 0x52ff00 : 0x39ff14;
           child.material.emissive = new THREE.Color(glowColor);
-          child.material.emissiveIntensity = 0.40;
+          child.material.emissiveIntensity = 0.52;
         } else {
           child.material.emissive = child.userData.origEmissive ? child.userData.origEmissive.clone() : new THREE.Color(0x000000);
           child.material.emissiveIntensity = child.userData.origEmissiveIntensity ?? 0;
@@ -1991,14 +1992,15 @@ function onMarkerClick(markerGroup) {
 
   const worldPos = getModelWorldPos(markerGroup);
 
-  // Position shared focus PointLight on the active marker (emanating from logo for branches)
+  // Position shared focus PointLight directly above the logo with radium radiant glow
   if (activeFocusLight) {
     const type = data.type || (isHQ ? 'Headquarters' : 'Supply Chain');
     const typeConfig = BRANCH_TYPES[type] || BRANCH_TYPES['Supply Chain'];
-    activeFocusLight.color.set(typeConfig.color);
-    const lightY = isBranch ? (worldPos.y + 0.40) : (worldPos.y + 0.60);
-    activeFocusLight.position.set(worldPos.x, lightY, worldPos.z);
-    activeFocusLight.intensity = isBranch ? 1.0 : 0.8;
+    activeFocusLight.color.set(isBranch ? 0x4efa82 : typeConfig.color);
+    const lightY = isBranch ? (worldPos.y + 0.68) : (worldPos.y + 0.60);
+    const lightZ = isBranch ? (worldPos.z + 0.06) : worldPos.z;
+    activeFocusLight.position.set(worldPos.x, lightY, lightZ);
+    activeFocusLight.intensity = isBranch ? 1.6 : 0.8;
   }
 
   // Smooth cinematic 3D zoom angle centered on branch
