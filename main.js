@@ -7,8 +7,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=33';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=33';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=34';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=34';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -27,6 +27,7 @@ let selectedDistrict = null;
 let hqBadge, resetBtn;
 let clock;
 let activeFocusLight = null;
+let activeMarkerGroup = null;
 
 // Auto-Panning State
 let isAutoPanning = false;
@@ -373,6 +374,15 @@ async function loadLogoModelTemplate() {
 function createFloatingLogoMedallion() {
   if (!MASTER_LOGO_MODEL) return null;
   const clone = MASTER_LOGO_MODEL.clone(true);
+  // Clone materials so this medallion can have independent emissive / glow states
+  clone.traverse((child) => {
+    if (child.isMesh && child.material) {
+      child.material = child.material.clone();
+      child.userData.origEmissive = child.material.emissive ? child.material.emissive.clone() : new THREE.Color(0x000000);
+      child.userData.origEmissiveIntensity = child.material.emissiveIntensity ?? 0;
+      child.userData.isPetal = (child.material.color.getHex() !== 0xffffff);
+    }
+  });
   clone.userData = {
     isMedallion: true,
     baseScale: 1.0,
@@ -986,14 +996,16 @@ function createSingleMarker(worldPos, data) {
     blending: isLightBg ? THREE.NormalBlending : THREE.AdditiveBlending,
     depthWrite: false,
   });
+  const isBranch = (type === 'CBF' || type === 'CFF');
   const glowSprite = new THREE.Sprite(spriteMat);
-  glowSprite.position.set(modelMesh.position.x, modelMesh.position.y + glowCfg.height - 0.02, modelMesh.position.z);
-  glowSprite.scale.set(0.40, 0.40, 1.0);
+  const spriteY = isBranch ? (modelMesh.position.y + 0.38) : (modelMesh.position.y + glowCfg.height - 0.02);
+  glowSprite.position.set(modelMesh.position.x, spriteY, modelMesh.position.z);
+  glowSprite.scale.set(0.42, 0.42, 1.0);
   group.add(glowSprite);
 
   // Floating 3D Agrigate Logo over Branch.glb landmarks (CBF & CFF)
   let logoMedallion = null;
-  if (type === 'CBF' || type === 'CFF') {
+  if (isBranch) {
     logoMedallion = createFloatingLogoMedallion();
     if (logoMedallion) {
       const my = modelMesh.position.y;
@@ -1185,9 +1197,12 @@ function animate() {
 
     const glow = marker.userData.glowSprite;
     if (glow) {
-      const gs = 0.40 + Math.sin(elapsed * 2.6 + marker.position.x * 3) * 0.04;
+      const isActive = (marker === activeMarkerGroup);
+      const baseScale = isActive ? 0.58 : 0.42;
+      const baseOpacity = isActive ? 0.72 : 0.45;
+      const gs = baseScale + Math.sin(elapsed * 2.6 + marker.position.x * 3) * 0.04;
       glow.scale.set(gs, gs, 1.0);
-      glow.material.opacity = 0.45 + Math.sin(elapsed * 2.0 + marker.position.z * 2) * 0.05;
+      glow.material.opacity = baseOpacity + Math.sin(elapsed * 2.0 + marker.position.z * 2) * 0.05;
     }
 
     const medallion = marker.userData.logoMedallion;
@@ -1316,12 +1331,14 @@ function syncMarkerAttachments(markerGroup) {
     });
   }
 
-  // Atmospheric glowing light & sprite above model
+  // Atmospheric glowing light & sprite above model (centered directly on logo emblem for branches)
   if (glowLight) {
     glowLight.position.set(px, py + glowCfg.height + 0.02, pz);
   }
+  const isBranch = !markerGroup.userData.isHQ && !markerGroup.userData.isFeedmill && !markerGroup.userData.isBreedersFarm;
+  const spriteY = isBranch ? (py + 0.38) : (py + glowCfg.height - 0.02);
   if (glowSprite) {
-    glowSprite.position.set(px, py + glowCfg.height - 0.02, pz);
+    glowSprite.position.set(px, spriteY, pz);
   }
 
   // Floating Agrigate logo medallion tracks model in X, Y, Z
@@ -1942,21 +1959,46 @@ function onMapClick(event) {
   if (activePopup) closePopup();
 }
 
+function setMarkerActiveState(markerGroup, isActive) {
+  if (!markerGroup) return;
+
+  const logoMedallion = markerGroup.userData.logoMedallion;
+  if (logoMedallion) {
+    logoMedallion.traverse((child) => {
+      if (child.isMesh && child.material) {
+        if (isActive) {
+          const glowColor = child.userData.isPetal ? 0x2ecc71 : 0x00e5ff;
+          child.material.emissive = new THREE.Color(glowColor);
+          child.material.emissiveIntensity = 0.40;
+        } else {
+          child.material.emissive = child.userData.origEmissive ? child.userData.origEmissive.clone() : new THREE.Color(0x000000);
+          child.material.emissiveIntensity = child.userData.origEmissiveIntensity ?? 0;
+        }
+      }
+    });
+  }
+}
+
 function onMarkerClick(markerGroup) {
   stopAutoPanning();
   closePopup();
   const data = markerGroup.userData.data;
   const isHQ = markerGroup.userData.isHQ;
+  const isBranch = !markerGroup.userData.isHQ && !markerGroup.userData.isFeedmill && !markerGroup.userData.isBreedersFarm;
+
+  activeMarkerGroup = markerGroup;
+  setMarkerActiveState(markerGroup, true);
 
   const worldPos = getModelWorldPos(markerGroup);
 
-  // Position shared focus PointLight on the active marker
+  // Position shared focus PointLight on the active marker (emanating from logo for branches)
   if (activeFocusLight) {
     const type = data.type || (isHQ ? 'Headquarters' : 'Supply Chain');
     const typeConfig = BRANCH_TYPES[type] || BRANCH_TYPES['Supply Chain'];
     activeFocusLight.color.set(typeConfig.color);
-    activeFocusLight.position.set(worldPos.x, worldPos.y + 0.6, worldPos.z);
-    activeFocusLight.intensity = 0.8;
+    const lightY = isBranch ? (worldPos.y + 0.40) : (worldPos.y + 0.60);
+    activeFocusLight.position.set(worldPos.x, lightY, worldPos.z);
+    activeFocusLight.intensity = isBranch ? 1.0 : 0.8;
   }
 
   // Smooth cinematic 3D zoom angle centered on branch
@@ -2180,6 +2222,10 @@ function updatePopupPosition() {
 
 function closePopup() {
   stopAutoPanning();
+  if (activeMarkerGroup) {
+    setMarkerActiveState(activeMarkerGroup, false);
+    activeMarkerGroup = null;
+  }
   if (activePopup) {
     activePopup.element.classList.remove('visible');
     activePopup = null;
