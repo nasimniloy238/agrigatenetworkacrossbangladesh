@@ -6,8 +6,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=28';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=28';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=29';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=29';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -509,10 +509,74 @@ function createLighting() {
 }
 
 // ============================================================
-//  BUILD PLAIN (FLAT 2D) DISTRICT MAP FROM SVG PATHS
+//  BUILD 3D DISTRICT MAP WITH VERTICAL SLAB DEPTH (NO BOTTOM CAP)
 // ============================================================
+// Helper to build vertical side walls along polygon perimeter (excluding underneath bottom layer)
+function createSideWallGeometry(ring, topY, bottomY) {
+  const positions = [];
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const p1 = ring[i];
+    const p2 = ring[(i + 1) % n];
+
+    const x1 = p1[0], z1 = p1[1];
+    const x2 = p2[0], z2 = p2[1];
+
+    // Triangle 1: p1_top, p1_bot, p2_top
+    positions.push(
+      x1, topY, z1,
+      x1, bottomY, z1,
+      x2, topY, z2
+    );
+    // Triangle 2: p2_top, p1_bot, p2_bot
+    positions.push(
+      x2, topY, z2,
+      x1, bottomY, z1,
+      x2, bottomY, z2
+    );
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.computeVertexNormals();
+  return geom;
+}
+
+function setDistrictMeshColor(mesh, hexColor, isHighlight = false) {
+  if (!mesh) return;
+  const top = mesh.userData.topMesh || mesh;
+  const side = top.userData?.sideMesh;
+
+  if (top && top.material) {
+    top.material.color.set(hexColor);
+  }
+  if (side && side.material) {
+    if (isHighlight) {
+      const c = new THREE.Color(hexColor).multiplyScalar(0.55);
+      side.material.color.copy(c);
+    } else {
+      side.material.color.set(side.userData.defaultColor);
+    }
+  }
+}
+
+function resetDistrictMeshColor(mesh) {
+  if (!mesh) return;
+  const top = mesh.userData.topMesh || mesh;
+  const side = top.userData?.sideMesh;
+
+  if (top && top.material) {
+    top.material.color.set(top.userData.defaultColor);
+  }
+  if (side && side.material) {
+    side.material.color.set(side.userData.defaultColor);
+  }
+}
+
 function createDistrictMap() {
   const { theme } = MAP_CONFIG;
+  const SLAB_DEPTH = 0.20;
+  const sideColor = 0x091424; // Sleek architectural deep navy edge
 
   BANGLADESH_GEO.districts.forEach(dData => {
     dData.rings.forEach((ring, rIdx) => {
@@ -525,7 +589,7 @@ function createDistrictMap() {
       });
       shape.closePath();
 
-      // Plain flat 2D ShapeGeometry (drastically reduces vertex/triangle GPU load by ~75%)
+      // 1. Top Surface: Flat 2D ShapeGeometry (fast, responsive)
       const geom = new THREE.ShapeGeometry(shape);
       geom.rotateX(-Math.PI / 2);
 
@@ -545,10 +609,31 @@ function createDistrictMap() {
         defaultColor: theme.mapColor,
       };
 
-      mapGroup.add(mesh);
-      districtMeshes.push(mesh);
+      // 2. Vertical Extruded Side Walls (underneath bottom layer completely excluded)
+      const sideGeom = createSideWallGeometry(ring, MAP_DEPTH, MAP_DEPTH - SLAB_DEPTH);
+      const sideMat = new THREE.MeshStandardMaterial({
+        color: sideColor,
+        roughness: 0.55,
+        metalness: 0.25,
+        side: THREE.DoubleSide,
+      });
+      const sideMesh = new THREE.Mesh(sideGeom, sideMat);
+      sideMesh.userData = {
+        isDistrict: true,
+        isDistrictSide: true,
+        district: dData.district,
+        id: dData.id,
+        defaultColor: sideColor,
+        topMesh: mesh,
+      };
+      mesh.userData.sideMesh = sideMesh;
 
-      // District outline borders - subtle 14% cyan glow elevated slightly above plane to prevent z-fighting
+      mapGroup.add(mesh);
+      mapGroup.add(sideMesh);
+      districtMeshes.push(mesh);
+      districtMeshes.push(sideMesh);
+
+      // 3. District outline borders - subtle 14% cyan glow elevated slightly above plane
       const borderPoints = ring.map(([x, z]) => new THREE.Vector3(x, MAP_DEPTH + 0.005, z));
       borderPoints.push(borderPoints[0].clone());
       const lineGeom = new THREE.BufferGeometry().setFromPoints(borderPoints);
@@ -1518,7 +1603,7 @@ function resetToTopDown() {
 
   // Clear district selection
   if (selectedDistrict) {
-    selectedDistrict.material.color.set(selectedDistrict.userData.defaultColor);
+    resetDistrictMeshColor(selectedDistrict);
     selectedDistrict = null;
   }
 
@@ -1609,7 +1694,8 @@ function onMapClick(event) {
   // 2. Check District polygon clicks
   const districtHits = raycaster.intersectObjects(districtMeshes, false);
   if (districtHits.length > 0) {
-    const hitDistrict = districtHits[0].object;
+    const rawHit = districtHits[0].object;
+    const hitDistrict = rawHit.userData.topMesh || rawHit;
     const districtName = hitDistrict.userData.district;
 
     // Check if matching branch exists in this district
@@ -1661,13 +1747,14 @@ function onMarkerClick(markerGroup) {
   setTimeout(() => showPopup(markerGroup, data, isHQ), 500);
 }
 
-function zoomToDistrict(districtMesh) {
+function zoomToDistrict(rawMesh) {
   closePopup();
+  const districtMesh = rawMesh.userData.topMesh || rawMesh;
   if (selectedDistrict && selectedDistrict !== districtMesh) {
-    selectedDistrict.material.color.set(selectedDistrict.userData.defaultColor);
+    resetDistrictMeshColor(selectedDistrict);
   }
   selectedDistrict = districtMesh;
-  districtMesh.material.color.set(MAP_CONFIG.theme.districtSelectedColor);
+  setDistrictMeshColor(districtMesh, MAP_CONFIG.theme.districtSelectedColor, true);
 
   const pos = new THREE.Vector3();
   districtMesh.getWorldPosition(pos);
@@ -1724,23 +1811,24 @@ function onMapHover(event) {
     return;
   }
 
-  // Check district meshes
+  // Check district meshes (top surface or 3D side walls)
   const districtHits = raycaster.intersectObjects(districtMeshes, false);
   if (districtHits.length > 0) {
     renderer.domElement.style.cursor = 'pointer';
-    const hitMesh = districtHits[0].object;
+    const rawHitMesh = districtHits[0].object;
+    const hitMesh = rawHitMesh.userData.topMesh || rawHitMesh;
 
     if (hoveredDistrict && hoveredDistrict !== hitMesh && hoveredDistrict !== selectedDistrict) {
-      hoveredDistrict.material.color.set(hoveredDistrict.userData.defaultColor);
+      resetDistrictMeshColor(hoveredDistrict);
     }
     if (hitMesh !== selectedDistrict) {
-      hitMesh.material.color.set(MAP_CONFIG.theme.districtHoverColor);
+      setDistrictMeshColor(hitMesh, MAP_CONFIG.theme.districtHoverColor, true);
       hoveredDistrict = hitMesh;
     }
   } else {
     renderer.domElement.style.cursor = 'grab';
     if (hoveredDistrict && hoveredDistrict !== selectedDistrict) {
-      hoveredDistrict.material.color.set(hoveredDistrict.userData.defaultColor);
+      resetDistrictMeshColor(hoveredDistrict);
       hoveredDistrict = null;
     }
     markerObjects.forEach(group => {
