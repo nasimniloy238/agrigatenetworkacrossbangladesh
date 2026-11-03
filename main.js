@@ -7,8 +7,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=35';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=35';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=36';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=36';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -985,22 +985,22 @@ function createSingleMarker(worldPos, data) {
   // Glowing light effects over every branch
   const glowCfg = GLOW_CONFIG[type] || GLOW_CONFIG['Supply Chain'];
 
-  // Atmospheric glowing energy aura sprite above branch (brightness / opacity = 0.5)
+  // Atmospheric glowing energy aura sprite above branch (soft subtle halo for branches)
+  const isBranch = (type === 'CBF' || type === 'CFF');
   const isLightBg = (MAP_CONFIG.theme.backgroundColor.toLowerCase() === '#ffffff' || MAP_CONFIG.theme.backgroundColor.toLowerCase() === '#fff');
   const glowTex = getGlowTexture(glowCfg.css);
   const spriteMat = new THREE.SpriteMaterial({
     map: glowTex,
     color: 0xffffff,
     transparent: true,
-    opacity: isLightBg ? 0.65 : 0.50,
-    blending: isLightBg ? THREE.NormalBlending : THREE.AdditiveBlending,
+    opacity: isBranch ? 0.30 : (isLightBg ? 0.65 : 0.50),
+    blending: (isBranch || isLightBg) ? THREE.NormalBlending : THREE.AdditiveBlending,
     depthWrite: false,
   });
-  const isBranch = (type === 'CBF' || type === 'CFF');
   const glowSprite = new THREE.Sprite(spriteMat);
   const spriteY = isBranch ? (modelMesh.position.y + 0.38) : (modelMesh.position.y + glowCfg.height - 0.02);
   glowSprite.position.set(modelMesh.position.x, spriteY, modelMesh.position.z);
-  glowSprite.scale.set(0.42, 0.42, 1.0);
+  glowSprite.scale.set(0.40, 0.40, 1.0);
   group.add(glowSprite);
 
   // Floating 3D Agrigate Logo over Branch.glb landmarks (CBF & CFF)
@@ -1198,8 +1198,9 @@ function animate() {
     const glow = marker.userData.glowSprite;
     if (glow) {
       const isActive = (marker === activeMarkerGroup);
-      const baseScale = isActive ? 0.58 : 0.42;
-      const baseOpacity = isActive ? 0.72 : 0.45;
+      const isBranch = (marker.userData.logoMedallion != null);
+      const baseScale = isBranch ? (isActive ? 0.48 : 0.40) : (isActive ? 0.58 : 0.42);
+      const baseOpacity = isBranch ? (isActive ? 0.32 : 0.28) : (isActive ? 0.72 : 0.45);
       const gs = baseScale + Math.sin(elapsed * 2.6 + marker.position.x * 3) * 0.04;
       glow.scale.set(gs, gs, 1.0);
       glow.material.opacity = baseOpacity + Math.sin(elapsed * 2.0 + marker.position.z * 2) * 0.05;
@@ -1970,7 +1971,7 @@ function setMarkerActiveState(markerGroup, isActive) {
           // Phosphorescent radium glow colors
           const glowColor = child.userData.isPetal ? 0x52ff00 : 0x39ff14;
           child.material.emissive = new THREE.Color(glowColor);
-          child.material.emissiveIntensity = 0.52;
+          child.material.emissiveIntensity = 0.45;
         } else {
           child.material.emissive = child.userData.origEmissive ? child.userData.origEmissive.clone() : new THREE.Color(0x000000);
           child.material.emissiveIntensity = child.userData.origEmissiveIntensity ?? 0;
@@ -1992,7 +1993,7 @@ function onMarkerClick(markerGroup) {
 
   const worldPos = getModelWorldPos(markerGroup);
 
-  // Position shared focus PointLight directly above the logo with radium radiant glow
+  // Focus light: turned OFF for branches so the building doesn't get flooded; radium logo glows on its own
   if (activeFocusLight) {
     const type = data.type || (isHQ ? 'Headquarters' : 'Supply Chain');
     const typeConfig = BRANCH_TYPES[type] || BRANCH_TYPES['Supply Chain'];
@@ -2000,7 +2001,7 @@ function onMarkerClick(markerGroup) {
     const lightY = isBranch ? (worldPos.y + 0.68) : (worldPos.y + 0.60);
     const lightZ = isBranch ? (worldPos.z + 0.06) : worldPos.z;
     activeFocusLight.position.set(worldPos.x, lightY, lightZ);
-    activeFocusLight.intensity = isBranch ? 1.6 : 0.8;
+    activeFocusLight.intensity = isBranch ? 0.0 : 0.8;
   }
 
   // Smooth cinematic 3D zoom angle centered on branch
