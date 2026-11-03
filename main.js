@@ -6,8 +6,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=29';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=29';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=30';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=30';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -207,13 +207,14 @@ async function loadModelTemplates() {
       model.position.z = -center.z;
       model.position.y = -bbox.min.y;
 
-      // Wrap in pivot group with scale (0.01 for Egg Warehouse, 0.015 for Feedmill, 0.03 for Breeders Farm, 0.20 for others)
+      // Wrap in pivot group with scale (0.01 for Egg Warehouse, 0.015 for Feedmill, 0.03 for Breeders Farm, 0.165 for CBF/CFF Branch, 0.20 for others)
       const pivot = new THREE.Group();
       pivot.add(model);
       let s = 0.20;
       if (m.type === 'Egg Warehouse') s = 0.01;
       else if (m.type === 'Feedmill') s = 0.015;
       else if (m.type === 'Breeders Farm') s = 0.03;
+      else if (m.type === 'CBF' || m.type === 'CFF') s = 0.165;
       pivot.scale.set(s, s, s);
 
       MODEL_TEMPLATES[m.type] = pivot;
@@ -1119,6 +1120,17 @@ function loadSavedTransforms() {
     const raw = localStorage.getItem('agrigate_map_transforms');
     if (raw) {
       const localData = JSON.parse(raw);
+      // Upgrade any stale cached 0.20/0.25 scales for CBF/CFF branches to the new 0.165 scale
+      const cbfKeys = [
+        'cbf-rangpur', 'cbf-natore', 'cbf-rajshahi', 'cbf-jashore',
+        'cbf-bogura', 'cbf-mymensingh', 'cbf-barisal', 'cbf-chattagong',
+        'cbf-cumilla', 'cbf-tangail', 'cbf-dinajpur', 'cff-sherpur'
+      ];
+      cbfKeys.forEach(k => {
+        if (localData[k] && (localData[k].scale === 0.2 || localData[k].scale === 0.25)) {
+          localData[k].scale = 0.165;
+        }
+      });
       savedTransforms = { ...savedTransforms, ...localData };
     }
   } catch (e) {
@@ -1466,7 +1478,8 @@ function setupModelEditor() {
     const isWh = selectedMarkerGroup.userData.data?.type === 'Egg Warehouse';
     const isFm = selectedMarkerGroup.userData.isFeedmill;
     const isBf = selectedMarkerGroup.userData.isBreedersFarm;
-    const defScale = isWh ? 0.01 : (isFm ? 0.015 : (isBf ? 0.03 : 0.20));
+    const isBranch = selectedMarkerGroup.userData.data?.type === 'CBF' || selectedMarkerGroup.userData.data?.type === 'CFF';
+    const defScale = isWh ? 0.01 : (isFm ? 0.015 : (isBf ? 0.03 : (isBranch ? 0.165 : 0.20)));
     selectedMarkerGroup.userData.modelMesh.scale.set(defScale, defScale, defScale);
     selectedMarkerGroup.userData.baseScale = defScale;
     syncUIFromModel(selectedMarkerGroup);
@@ -1569,7 +1582,8 @@ function setupModelEditor() {
         const isWh = m.userData.data?.type === 'Egg Warehouse';
         const isFm = m.userData.isFeedmill;
         const isBf = m.userData.isBreedersFarm;
-        const defScale = isWh ? 0.01 : (isFm ? 0.015 : (isBf ? 0.03 : 0.20));
+        const isBranch = m.userData.data?.type === 'CBF' || m.userData.data?.type === 'CFF';
+        const defScale = isWh ? 0.01 : (isFm ? 0.015 : (isBf ? 0.03 : (isBranch ? 0.165 : 0.20)));
 
         model.position.set(0, 0.1, 0);
         model.rotation.set(0, -Math.PI / 2, 0);

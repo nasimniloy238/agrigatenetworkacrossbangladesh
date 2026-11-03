@@ -55,7 +55,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "scm-rangpur": {
     "position": {
@@ -81,7 +81,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "cbf-rajshahi": {
     "position": {
@@ -94,7 +94,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "cbf-jashore": {
     "position": {
@@ -107,7 +107,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "cbf-bogura": {
     "position": {
@@ -120,7 +120,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "scm-bogura": {
     "position": {
@@ -146,7 +146,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "cbf-barisal": {
     "position": {
@@ -159,7 +159,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "scm-barisal": {
     "position": {
@@ -185,7 +185,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "cbf-cumilla": {
     "position": {
@@ -198,7 +198,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "cbf-tangail": {
     "position": {
@@ -211,7 +211,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.25
+    "scale": 0.165
   },
   "egg-tangail": {
     "position": {
@@ -237,7 +237,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "scm-dinajpur": {
     "position": {
@@ -263,7 +263,7 @@ export const DEFAULT_TRANSFORMS = {
       "y": -90,
       "z": 0
     },
-    "scale": 0.2
+    "scale": 0.165
   },
   "scm-naogaon": {
     "position": {
