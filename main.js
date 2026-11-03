@@ -6,8 +6,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=32';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=32';
+import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=33';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=33';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -147,92 +148,95 @@ async function loadModelTemplates() {
     { type: 'Breeders Farm', path: './assets/3d Files/breeders farm.glb' },
   ];
 
-  await Promise.all(models.map(async m => {
-    try {
-      const gltf = await gltfLoader.loadAsync(encodeURI(m.path));
-      const model = gltf.scene;
+  await Promise.all([
+    ...models.map(async m => {
+      try {
+        const gltf = await gltfLoader.loadAsync(encodeURI(m.path));
+        const model = gltf.scene;
 
-      // Compute normals & assign PBR material (solid green for CBF, solid blue for CFF, vertexColors for others)
-      model.traverse(child => {
-        if (child.isMesh) {
-          if (child.geometry && !child.geometry.attributes.normal) {
-            child.geometry.computeVertexNormals();
-          }
-          if (m.type === 'CBF') {
-            // Remove textures & vertex colors, give clean solid emerald green
-            child.material = new THREE.MeshStandardMaterial({
-              color: 0x2ecc71,
-              roughness: 0.35,
-              metalness: 0.15,
-            });
-          } else if (m.type === 'CFF') {
-            // Remove textures & vertex colors, give clean solid blue for CFF branch
-            child.material = new THREE.MeshStandardMaterial({
-              color: 0x00a8ff,
-              roughness: 0.35,
-              metalness: 0.15,
-            });
-          } else if (m.type === 'Egg Warehouse') {
-            // Remove textures & vertex colors, give clean solid purple for Egg Warehouse
-            child.material = new THREE.MeshStandardMaterial({
-              color: 0xa855f7,
-              roughness: 0.35,
-              metalness: 0.15,
-            });
-          } else if (m.type === 'Feedmill' || m.type === 'Breeders Farm') {
-            // Remove textures & vertex colors, give clean solid industrial grey
-            if (child.material) {
-              if (Array.isArray(child.material)) child.material.forEach(mat => mat.dispose?.());
-              else child.material.dispose?.();
+        // Compute normals & assign PBR material (solid green for CBF, solid blue for CFF, vertexColors for others)
+        model.traverse(child => {
+          if (child.isMesh) {
+            if (child.geometry && !child.geometry.attributes.normal) {
+              child.geometry.computeVertexNormals();
             }
-            child.material = new THREE.MeshStandardMaterial({
-              color: 0x8a929b,
-              roughness: 0.38,
-              metalness: 0.20,
-            });
-          } else {
-            child.material = new THREE.MeshStandardMaterial({
-              vertexColors: true,
-              roughness: 0.35,
-              metalness: 0.15,
-            });
+            if (m.type === 'CBF') {
+              // Remove textures & vertex colors, give clean solid emerald green
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x2ecc71,
+                roughness: 0.35,
+                metalness: 0.15,
+              });
+            } else if (m.type === 'CFF') {
+              // Remove textures & vertex colors, give clean solid blue for CFF branch
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x00a8ff,
+                roughness: 0.35,
+                metalness: 0.15,
+              });
+            } else if (m.type === 'Egg Warehouse') {
+              // Remove textures & vertex colors, give clean solid purple for Egg Warehouse
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0xa855f7,
+                roughness: 0.35,
+                metalness: 0.15,
+              });
+            } else if (m.type === 'Feedmill' || m.type === 'Breeders Farm') {
+              // Remove textures & vertex colors, give clean solid industrial grey
+              if (child.material) {
+                if (Array.isArray(child.material)) child.material.forEach(mat => mat.dispose?.());
+                else child.material.dispose?.();
+              }
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x8a929b,
+                roughness: 0.38,
+                metalness: 0.20,
+              });
+            } else {
+              child.material = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                roughness: 0.35,
+                metalness: 0.15,
+              });
+            }
+            child.castShadow = true;
+            child.receiveShadow = true;
           }
-          child.castShadow = true;
-          child.receiveShadow = true;
+        });
+
+        // Calculate bounds
+        const bbox = new THREE.Box3().setFromObject(model);
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+
+        // Center horizontally and align base to y = 0
+        model.position.x = -center.x;
+        model.position.z = -center.z;
+        model.position.y = -bbox.min.y;
+
+        // Wrap in pivot group with scale (0.01 for Egg Warehouse, 0.015 for Feedmill, 0.03 for Breeders Farm, 0.165 for CBF/CFF Branch, 0.20 for others)
+        const pivot = new THREE.Group();
+        pivot.add(model);
+        let s = 0.20;
+        if (m.type === 'Egg Warehouse') s = 0.01;
+        else if (m.type === 'Feedmill') s = 0.015;
+        else if (m.type === 'Breeders Farm') s = 0.03;
+        else if (m.type === 'CBF' || m.type === 'CFF') s = 0.165;
+        pivot.scale.set(s, s, s);
+
+        MODEL_TEMPLATES[m.type] = pivot;
+        if (m.type === 'Feedmill') {
+          MODEL_TEMPLATES['Agrigate Feed Limited'] = pivot;
         }
-      });
-
-      // Calculate bounds
-      const bbox = new THREE.Box3().setFromObject(model);
-      const center = new THREE.Vector3();
-      bbox.getCenter(center);
-
-      // Center horizontally and align base to y = 0
-      model.position.x = -center.x;
-      model.position.z = -center.z;
-      model.position.y = -bbox.min.y;
-
-      // Wrap in pivot group with scale (0.01 for Egg Warehouse, 0.015 for Feedmill, 0.03 for Breeders Farm, 0.165 for CBF/CFF Branch, 0.20 for others)
-      const pivot = new THREE.Group();
-      pivot.add(model);
-      let s = 0.20;
-      if (m.type === 'Egg Warehouse') s = 0.01;
-      else if (m.type === 'Feedmill') s = 0.015;
-      else if (m.type === 'Breeders Farm') s = 0.03;
-      else if (m.type === 'CBF' || m.type === 'CFF') s = 0.165;
-      pivot.scale.set(s, s, s);
-
-      MODEL_TEMPLATES[m.type] = pivot;
-      if (m.type === 'Feedmill') {
-        MODEL_TEMPLATES['Agrigate Feed Limited'] = pivot;
+        if (m.type === 'Breeders Farm') {
+          MODEL_TEMPLATES['Agrigate Farm Limited'] = pivot;
+        }
+      } catch (err) {
+        console.warn('Could not load GLB model for', m.type, err);
       }
-      if (m.type === 'Breeders Farm') {
-        MODEL_TEMPLATES['Agrigate Farm Limited'] = pivot;
-      }
-    } catch (err) {
-      console.warn('Could not load GLB model for', m.type, err);
-    }
-  }));
+    }),
+    loadLogoModelTemplate(),
+  ]);
 }
 
 // Glowing light textures & configs per branch type
@@ -264,119 +268,116 @@ const GLOW_CONFIG = {
 };
 
 // ============================================================
-//  FLOATING 3D AGRIGATE LOGO MEDALLION (360° SPIN)
+//  FLOATING 3D AGRIGATE LOGO (EXACT SVG SILHOUETTE)
 // ============================================================
-let LOGO_TEXTURE = null;
-let LOGO_SHARED_RIM_GEO = null;
-let LOGO_SHARED_FACE_GEO = null;
-let LOGO_FACE_MAT = null;
-const LOGO_RIM_MATS = {};
+const svgLoader = new SVGLoader();
+let MASTER_LOGO_MODEL = null;
 
-function getLogoTexture() {
-  if (LOGO_TEXTURE) return LOGO_TEXTURE;
+async function loadLogoModelTemplate() {
+  if (MASTER_LOGO_MODEL) return MASTER_LOGO_MODEL;
 
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext('2d');
+  try {
+    const svgData = await svgLoader.loadAsync('assets/agrigatelogo.svg');
+    const logoGroup = new THREE.Group();
 
-  // Initial crisp white circular medallion disc with emerald ring
-  ctx.beginPath();
-  ctx.arc(256, 256, 248, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
+    // Palette materials matching SVG artwork
+    const whiteMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.35,
+      metalness: 0.15,
+    });
+    const limeMat = new THREE.MeshStandardMaterial({
+      color: 0xbcd978,
+      roughness: 0.35,
+      metalness: 0.15,
+    });
+    const deepGreenMat = new THREE.MeshStandardMaterial({
+      color: 0x407939,
+      roughness: 0.35,
+      metalness: 0.15,
+    });
 
-  ctx.lineWidth = 14;
-  ctx.strokeStyle = '#2ecc71';
-  ctx.stroke();
+    // Extrusion settings:
+    // White 4-lobed backing shape: depth 0.8 with smooth bevels
+    // Petals: depth 0.25 slightly raised on front (+Z) and back (-Z)
+    svgData.paths.forEach((path, pIdx) => {
+      const shapes = SVGLoader.createShapes(path);
+      if (!shapes || shapes.length === 0) return;
 
-  LOGO_TEXTURE = new THREE.CanvasTexture(canvas);
-  LOGO_TEXTURE.generateMipmaps = true;
-  LOGO_TEXTURE.minFilter = THREE.LinearMipmapLinearFilter;
-  LOGO_TEXTURE.colorSpace = THREE.SRGBColorSpace;
+      if (pIdx === 0) {
+        // White backing clover/flower contour
+        const whiteGeo = new THREE.ExtrudeGeometry(shapes, {
+          depth: 0.8,
+          bevelEnabled: true,
+          bevelThickness: 0.18,
+          bevelSize: 0.18,
+          bevelSegments: 2,
+        });
+        const whiteMesh = new THREE.Mesh(whiteGeo, whiteMat);
+        whiteMesh.castShadow = true;
+        logoGroup.add(whiteMesh);
+      } else {
+        // Petal shapes (1..4 lime, 5..8 deep green)
+        const mat = (pIdx <= 4) ? limeMat : deepGreenMat;
 
-  // Asynchronously load agrigatelogo.svg
-  const img = new Image();
-  img.onload = () => {
-    ctx.clearRect(0, 0, 512, 512);
+        // Front face petals (raised on +Z)
+        const frontGeo = new THREE.ExtrudeGeometry(shapes, {
+          depth: 0.25,
+          bevelEnabled: true,
+          bevelThickness: 0.08,
+          bevelSize: 0.08,
+          bevelSegments: 1,
+        });
+        const frontMesh = new THREE.Mesh(frontGeo, mat);
+        frontMesh.position.z = 0.82;
+        logoGroup.add(frontMesh);
 
-    // Crisp white medallion base
-    ctx.beginPath();
-    ctx.arc(256, 256, 248, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
+        // Back face petals (raised on -Z)
+        const backGeo = new THREE.ExtrudeGeometry(shapes, {
+          depth: 0.25,
+          bevelEnabled: true,
+          bevelThickness: 0.08,
+          bevelSize: 0.08,
+          bevelSegments: 1,
+        });
+        const backMesh = new THREE.Mesh(backGeo, mat);
+        backMesh.position.z = -0.27;
+        logoGroup.add(backMesh);
+      }
+    });
 
-    // Crisp emerald border ring
-    ctx.lineWidth = 14;
-    ctx.strokeStyle = '#2ecc71';
-    ctx.stroke();
+    // Center geometry around (0, 0, 0)
+    const bbox = new THREE.Box3().setFromObject(logoGroup);
+    const center = new THREE.Vector3();
+    bbox.getCenter(center);
+    logoGroup.position.set(-center.x, -center.y, -center.z);
 
-    // Draw SVG emblem
-    ctx.drawImage(img, 44, 44, 424, 424);
-    LOGO_TEXTURE.needsUpdate = true;
-  };
-  img.onerror = () => {
-    console.warn('Could not load assets/agrigatelogo.svg');
-  };
-  img.src = 'assets/agrigatelogo.svg';
+    const pivot = new THREE.Group();
+    pivot.add(logoGroup);
 
-  return LOGO_TEXTURE;
+    // SVG coordinates have Y increasing downward.
+    // Scale factor: scale SVG dimensions (~30 units) down to ~0.26 Three.js world units.
+    // Using (s, -s, -s) inverts Y while keeping positive determinant (no inverted normals).
+    const s = 0.26 / 30;
+    pivot.scale.set(s, -s, -s);
+
+    MASTER_LOGO_MODEL = new THREE.Group();
+    MASTER_LOGO_MODEL.add(pivot);
+    return MASTER_LOGO_MODEL;
+  } catch (err) {
+    console.warn('Could not load exact-shape SVG logo:', err);
+    return null;
+  }
 }
 
-function createFloatingLogoMedallion(branchType = 'CBF') {
-  const radius = 0.135;
-  const thickness = 0.024;
-
-  if (!LOGO_SHARED_RIM_GEO) {
-    LOGO_SHARED_RIM_GEO = new THREE.CylinderGeometry(radius, radius, thickness, 32, 1, true);
-    LOGO_SHARED_RIM_GEO.rotateX(Math.PI / 2);
-  }
-  if (!LOGO_SHARED_FACE_GEO) {
-    LOGO_SHARED_FACE_GEO = new THREE.CircleGeometry(radius, 32);
-  }
-
-  const tex = getLogoTexture();
-  if (!LOGO_FACE_MAT) {
-    LOGO_FACE_MAT = new THREE.MeshStandardMaterial({
-      map: tex,
-      roughness: 0.35,
-      metalness: 0.10,
-      side: THREE.FrontSide,
-    });
-  }
-
-  const rimColor = (branchType === 'CFF') ? 0x00e5ff : 0x2ecc71;
-  if (!LOGO_RIM_MATS[rimColor]) {
-    LOGO_RIM_MATS[rimColor] = new THREE.MeshStandardMaterial({
-      color: rimColor,
-      metalness: 0.75,
-      roughness: 0.20,
-    });
-  }
-
-  const group = new THREE.Group();
-
-  // Cylindrical metallic rim
-  const rimMesh = new THREE.Mesh(LOGO_SHARED_RIM_GEO, LOGO_RIM_MATS[rimColor]);
-  group.add(rimMesh);
-
-  // Front face (facing +Z)
-  const frontMesh = new THREE.Mesh(LOGO_SHARED_FACE_GEO, LOGO_FACE_MAT);
-  frontMesh.position.z = thickness / 2 + 0.001;
-  group.add(frontMesh);
-
-  // Back face (facing -Z, rotated 180° around Y so logo is unmirrored)
-  const backMesh = new THREE.Mesh(LOGO_SHARED_FACE_GEO, LOGO_FACE_MAT);
-  backMesh.position.z = -thickness / 2 - 0.001;
-  backMesh.rotation.y = Math.PI;
-  group.add(backMesh);
-
-  group.userData = {
+function createFloatingLogoMedallion() {
+  if (!MASTER_LOGO_MODEL) return null;
+  const clone = MASTER_LOGO_MODEL.clone(true);
+  clone.userData = {
     isMedallion: true,
     baseScale: 1.0,
   };
-
-  return group;
+  return clone;
 }
 
 // Stylized procedural 3D Box Factory landmark for Agrigate Factories
@@ -990,14 +991,16 @@ function createSingleMarker(worldPos, data) {
   glowSprite.scale.set(0.40, 0.40, 1.0);
   group.add(glowSprite);
 
-  // Floating 3D Agrigate Logo Medallion over Branch.glb landmarks (CBF & CFF)
+  // Floating 3D Agrigate Logo over Branch.glb landmarks (CBF & CFF)
   let logoMedallion = null;
   if (type === 'CBF' || type === 'CFF') {
-    logoMedallion = createFloatingLogoMedallion(type);
-    const my = modelMesh.position.y;
-    logoMedallion.position.set(modelMesh.position.x, my + 0.38, modelMesh.position.z);
-    logoMedallion.userData.baseY = my + 0.38;
-    group.add(logoMedallion);
+    logoMedallion = createFloatingLogoMedallion();
+    if (logoMedallion) {
+      const my = modelMesh.position.y;
+      logoMedallion.position.set(modelMesh.position.x, my + 0.38, modelMesh.position.z);
+      logoMedallion.userData.baseY = my + 0.38;
+      group.add(logoMedallion);
+    }
   }
 
   group.userData = {
