@@ -12,8 +12,9 @@
 .map-section {
   position: relative;
   width: 100%;
-  height: 100vh;
-  min-height: 600px;
+  height: 100vh;      /* Fallback for older browsers */
+  height: 100dvh;     /* Dynamically adjusts to exact visible space between browser bars */
+  min-height: 0;      /* Removes the minimum height limit on mobile */
   background: #060d18;
   overflow: hidden;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -290,8 +291,8 @@
 /* --- Floating Map Controls (Navigation Cluster + Reset View) --- */
 .map-controls-group {
   position: absolute;
-  bottom: 24px;
-  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: calc(24px + env(safe-area-inset-right, 0px));
   z-index: 20;
   display: flex;
   align-items: center;
@@ -423,8 +424,8 @@
 /* --- Legend --- */
 .map-legend {
   position: absolute;
-  bottom: 74px;
-  left: 24px;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  left: calc(24px + env(safe-area-inset-left, 0px));
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -568,14 +569,18 @@
     padding: 16px;
   }
 
+  .cinematic-toggle-btn,
+  .map-controls-group {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
   .map-legend {
-    bottom: 64px;
-    left: 16px;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    left: calc(16px + env(safe-area-inset-left, 0px));
   }
 
   .map-controls-group {
-    bottom: 16px;
-    right: 16px;
+    right: calc(16px + env(safe-area-inset-right, 0px));
     gap: 6px;
   }
 
@@ -597,7 +602,7 @@
 
 @media (max-width: 480px) {
   .map-section {
-    min-height: 500px;
+    min-height: 0;
   }
 
   .map-header {
@@ -621,8 +626,8 @@
    ============================================================ */
 .cinematic-toggle-btn {
   position: absolute;
-  bottom: 24px;
-  left: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  left: calc(24px + env(safe-area-inset-left, 0px));
   z-index: 25;
   display: flex;
   align-items: center;
@@ -698,8 +703,7 @@
 
 @media (max-width: 768px) {
   .cinematic-toggle-btn {
-    bottom: 16px;
-    left: 16px;
+    left: calc(16px + env(safe-area-inset-left, 0px));
     padding: 7px 14px;
     font-size: 0.78rem;
     gap: 8px;
