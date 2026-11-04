@@ -11,8 +11,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=42';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=42';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=44';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=44';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -1263,6 +1263,30 @@ function createSingleMarker(worldPos, data) {
 // ============================================================
 //  CATEGORY-SPECIFIC GRADIENT LIGHT BEAMS
 // ============================================================
+let circularParticleTexture = null;
+function getCircularParticleTexture() {
+  if (circularParticleTexture) return circularParticleTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+
+  const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+  gradient.addColorStop(0.35, 'rgba(255, 255, 255, 0.95)');
+  gradient.addColorStop(0.70, 'rgba(255, 255, 255, 0.40)');
+  gradient.addColorStop(0.95, 'rgba(255, 255, 255, 0.05)');
+  gradient.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(32, 32, 31, 0, Math.PI * 2);
+  ctx.fill();
+
+  circularParticleTexture = new THREE.CanvasTexture(canvas);
+  return circularParticleTexture;
+}
+
 function createBeams() {
   const { headquarters, operationAreas } = MAP_CONFIG;
   scene.updateMatrixWorld(true);
@@ -1329,12 +1353,14 @@ function createBeams() {
     const beamLine = new THREE.Line(beamGeo, beamMat);
     beamsGroup.add(beamLine);
 
-    // Glow head point at the tip of the beam
+    // Glow head point at the tip of the beam (box shapes by default; round shapes in Cinematic Mode)
     const headGeo = new THREE.BufferGeometry();
     headGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+    const roundTexture = isCinematicMode ? getCircularParticleTexture() : null;
     const headMat = new THREE.PointsMaterial({
       color: headColor,
-      size: isLightBg ? 0.38 : 0.32,
+      size: isLightBg ? 0.38 : (isCinematicMode ? 0.44 : 0.32),
+      map: roundTexture,
       transparent: true,
       opacity: 0.95,
       blending: isLightBg ? THREE.NormalBlending : THREE.AdditiveBlending,
@@ -2207,6 +2233,16 @@ function toggleCinematicMode(enable) {
     currentTiltBlur = 0.0;
     targetTiltBlur = 0.0;
   }
+
+  // Dynamic light beam particles: switch square boxes to glowing round shapes in Cinematic Mode only
+  const roundTexture = isCinematicMode ? getCircularParticleTexture() : null;
+  beamAnimations.forEach(beam => {
+    if (beam.headPoint && beam.headPoint.material) {
+      beam.headPoint.material.map = roundTexture;
+      beam.headPoint.material.size = isCinematicMode ? 0.44 : 0.32;
+      beam.headPoint.material.needsUpdate = true;
+    }
+  });
 }
 
 // ============================================================
