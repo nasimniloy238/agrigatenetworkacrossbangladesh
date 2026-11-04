@@ -11,8 +11,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=49';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=49';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=50';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=50';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -42,16 +43,22 @@ let navBranchIndicator = null;
 let navArrowPrev = null;
 let navArrowNext = null;
 
-// High-End Cinematic Mode State (Sunlight, Shadows, Tilt-Shift)
+// High-End Cinematic Mode State (Sunlight, Shadows, Tilt-Shift, Ambient Occlusion)
 let isCinematicMode = false;
 let sunLight = null;
 let composer = null;
+let gtaoPass = null;
 let tiltShiftPassH = null;
 let tiltShiftPassV = null;
 let tiltShiftPass = null;
 let cinematicBtn = null;
 let targetTiltBlur = 0.0;
 let currentTiltBlur = 0.0;
+
+// Dynamic Map Depth Extrusion State (y = 0.20 standard, y = 0.30 in Cinematic Mode)
+const sideWallMeshes = [];
+let currentSlabBottomY = 0.10; // (MAP_DEPTH 0.30 - SLAB_DEPTH 0.20)
+let targetSlabBottomY = 0.10;
 
 // Auto-Panning State
 let isAutoPanning = false;
@@ -898,6 +905,23 @@ function createSideWallGeometry(ring, topY, bottomY) {
   return geom;
 }
 
+// Dynamically adjust bottom vertices of all vertical extruded side walls
+function setSideWallsBottomY(bottomY) {
+  for (let m = 0; m < sideWallMeshes.length; m++) {
+    const mesh = sideWallMeshes[m];
+    if (!mesh || !mesh.geometry) continue;
+    const posAttr = mesh.geometry.attributes.position;
+    const count = posAttr.count;
+    for (let i = 0; i < count; i += 6) {
+      posAttr.setY(i + 1, bottomY);
+      posAttr.setY(i + 4, bottomY);
+      posAttr.setY(i + 5, bottomY);
+    }
+    posAttr.needsUpdate = true;
+    mesh.geometry.computeVertexNormals();
+  }
+}
+
 function setDistrictMeshColor(mesh, hexColor, isHighlight = false) {
   if (!mesh) return;
   const top = mesh.userData.topMesh || mesh;
@@ -975,6 +999,7 @@ function createDistrictMap() {
         side: THREE.DoubleSide,
       });
       const sideMesh = new THREE.Mesh(sideGeom, sideMat);
+      sideMesh.castShadow = true;
       sideMesh.receiveShadow = true;
       sideMesh.userData = {
         isDistrict: true,
@@ -988,6 +1013,7 @@ function createDistrictMap() {
 
       mapGroup.add(mesh);
       mapGroup.add(sideMesh);
+      sideWallMeshes.push(sideMesh);
       districtMeshes.push(mesh);
       districtMeshes.push(sideMesh);
 
@@ -1497,6 +1523,12 @@ function animate() {
 
   updateHQBadgePosition();
   updatePopupPosition();
+
+  // Smooth dynamic map depth extrusion animation (0.20 standard -> 0.30 in Cinematic Mode)
+  if (Math.abs(targetSlabBottomY - currentSlabBottomY) > 0.001) {
+    currentSlabBottomY += (targetSlabBottomY - currentSlabBottomY) * 0.14;
+    setSideWallsBottomY(currentSlabBottomY);
+  }
 
   if (isCinematicMode && composer) {
     // Dynamic Tilt-Shift: activate smoothly when zoomed in or inspecting a landmark
@@ -2179,13 +2211,55 @@ function setupCinematicMode() {
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
-    tiltShiftPassH = new ShaderPass(CinematicTiltShiftHShader);
-    tiltShiftPassV = new ShaderPass(CinematicTiltShiftVShader);
-    tiltShiftPass = tiltShiftPassV; // alias for safety
-
     const container = renderer.domElement;
     const w = container.clientWidth || window.innerWidth;
     const h = container.clientHeight || window.innerHeight;
+
+    // Ground Truth Ambient Occlusion (GTAOPass) for deep crevice shading on 3D building walls, corners, and model edges
+    try {
+      gtaoPass = new GTAOPass(scene, camera, w, h);
+      gtaoPass.output = GTAOPass.OUTPUT.Default; // Blend AO directly with beauty pass
+      gtaoPass.blendIntensity = 1.15;
+      gtaoPass.updateGtaoMaterial({
+        radius: 0.35,              // World-space AO radius tuned for 3D building scale
+        distanceExponent: 1.2,     // Natural falloff curve
+        thickness: 1.0,            // Depth thickness test
+        scale: 1.25,               // Crevice darkness intensity
+        samples: 16,               // High-quality horizon sample count
+        distanceFallOff: 1.0,
+        screenSpaceRadius: false,
+      });
+      gtaoPass.updatePdMaterial({
+        lumaPhi: 10.0,
+        depthPhi: 2.0,
+        normalPhi: 3.0,
+        radius: 4.0,
+        radiusExponent: 1.0,
+        rings: 2.0,
+        samples: 16,
+      });
+
+      // Safely hide non-mesh elements (points, lines, sprites) during GTAO GBuffer normal/depth pass
+      gtaoPass.overrideVisibility = function () {
+        const scn = this.scene;
+        const cache = this._visibilityCache;
+        scn.traverse(function (obj) {
+          cache.set(obj, obj.visible);
+          if (obj.isPoints || obj.isLine || obj.isSprite) {
+            obj.visible = false;
+          }
+        });
+      };
+
+      gtaoPass.enabled = false;
+      composer.addPass(gtaoPass);
+    } catch (gtaoErr) {
+      console.warn('GTAOPass init deferred:', gtaoErr);
+    }
+
+    tiltShiftPassH = new ShaderPass(CinematicTiltShiftHShader);
+    tiltShiftPassV = new ShaderPass(CinematicTiltShiftVShader);
+    tiltShiftPass = tiltShiftPassV; // alias for safety
 
     tiltShiftPassH.uniforms.resolution.value.set(w, h);
     tiltShiftPassV.uniforms.resolution.value.set(w, h);
@@ -2205,6 +2279,14 @@ function toggleCinematicMode(enable) {
 
   if (cinematicBtn) {
     cinematicBtn.classList.toggle('active', isCinematicMode);
+  }
+
+  // 1. Map depth extrude: increase to 0.30 in Cinematic Mode (y = 0.00), return to 0.20 when off (y = 0.10)
+  targetSlabBottomY = isCinematicMode ? (MAP_DEPTH - 0.30) : (MAP_DEPTH - 0.20);
+
+  // 2. Ambient Occlusion (GTAOPass)
+  if (gtaoPass) {
+    gtaoPass.enabled = isCinematicMode;
   }
 
   if (sunLight) {
@@ -2736,6 +2818,9 @@ function onResize() {
 
   if (composer) {
     composer.setSize(width, height);
+  }
+  if (gtaoPass) {
+    gtaoPass.setSize(width, height);
   }
   if (tiltShiftPassH) {
     tiltShiftPassH.uniforms.resolution.value.set(width, height);
