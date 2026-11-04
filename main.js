@@ -46,6 +46,8 @@ let navArrowNext = null;
 let isCinematicMode = false;
 let sunLight = null;
 let composer = null;
+let tiltShiftPassH = null;
+let tiltShiftPassV = null;
 let tiltShiftPass = null;
 let cinematicBtn = null;
 let targetTiltBlur = 0.0;
@@ -67,10 +69,92 @@ const gltfLoader = new GLTFLoader();
 const MODEL_TEMPLATES = {};
 
 // ============================================================
-//  CINEMATIC POST-PROCESSING SHADERS (TILT-SHIFT & VIGNETTE)
+//  CINEMATIC POST-PROCESSING SHADERS (2-PASS GAUSSIAN / BOKEH TILT-SHIFT)
+//  Pass 1: Horizontal Blur + Dithered Poisson sampling
+//  Pass 2: Vertical Blur + Dithered Poisson sampling + Contrast & Vignette
 // ============================================================
-const CinematicTiltShiftShader = {
-  name: 'CinematicTiltShiftShader',
+const CinematicTiltShiftHShader = {
+  name: 'CinematicTiltShiftHShader',
+  uniforms: {
+    tDiffuse: { value: null },
+    resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    focusY: { value: 0.5 },
+    focusBand: { value: 0.22 },
+    blurAmount: { value: 0.0 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform vec2 resolution;
+    uniform float focusY;
+    uniform float focusBand;
+    uniform float blurAmount;
+    varying vec2 vUv;
+
+    // High-frequency interleaved gradient noise for creamy camera-lens bokeh
+    float getDither(vec2 coord) {
+      vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
+      return fract(magic.z * fract(dot(coord, magic.xy)));
+    }
+
+    void main() {
+      float dist = abs(vUv.y - focusY);
+      float blurFactor = smoothstep(focusBand * 0.35, focusBand * 1.35, dist) * blurAmount;
+
+      if (blurFactor < 0.001) {
+        gl_FragColor = texture2D(tDiffuse, vUv);
+        return;
+      }
+
+      vec2 texelSize = vec2(1.0) / resolution;
+      // Tightly clustered radius (no wide spreading), scaled by CoC blur factor
+      float radius = 5.2 * blurFactor;
+
+      // High-frequency per-pixel noise dither breaks sample banding into soft film grain
+      float dither = getDither(gl_FragCoord.xy);
+      float ditherOffset = (dither - 0.5) * 0.95;
+      float crossJitter = (fract(dither * 7.1317) - 0.5) * 0.40;
+
+      // 11-tap tightly clustered Gaussian / Bokeh distribution
+      float offsets[11];
+      offsets[0] = 0.0;
+      offsets[1] = 0.85;  offsets[2] = -0.85;
+      offsets[3] = 1.80;  offsets[4] = -1.80;
+      offsets[5] = 2.85;  offsets[6] = -2.85;
+      offsets[7] = 3.95;  offsets[8] = -3.95;
+      offsets[9] = 5.10;  offsets[10] = -5.10;
+
+      float weights[11];
+      weights[0] = 0.20;
+      weights[1] = 0.16;  weights[2] = 0.16;
+      weights[3] = 0.12;  weights[4] = 0.12;
+      weights[5] = 0.075; weights[6] = 0.075;
+      weights[7] = 0.040; weights[8] = 0.040;
+      weights[9] = 0.015; weights[10] = 0.015;
+
+      vec4 color = vec4(0.0);
+      float totalWeight = 0.0;
+
+      for (int i = 0; i < 11; i++) {
+        float tapPos = offsets[i] + ditherOffset;
+        vec2 sampleUv = vUv + vec2(tapPos * radius * texelSize.x, crossJitter * radius * texelSize.y);
+        color += texture2D(tDiffuse, sampleUv) * weights[i];
+        totalWeight += weights[i];
+      }
+
+      gl_FragColor = color / totalWeight;
+    }
+  `
+};
+
+const CinematicTiltShiftVShader = {
+  name: 'CinematicTiltShiftVShader',
   uniforms: {
     tDiffuse: { value: null },
     resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
@@ -97,37 +181,47 @@ const CinematicTiltShiftShader = {
     uniform float contrast;
     varying vec2 vUv;
 
+    // Interleaved gradient noise with decorrelated seed for pass 2
+    float getDither(vec2 coord) {
+      vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
+      return fract(magic.z * fract(dot(coord, magic.xy)));
+    }
+
     void main() {
       float dist = abs(vUv.y - focusY);
-      float blurFactor = smoothstep(focusBand * 0.45, focusBand * 1.45, dist) * blurAmount;
+      float blurFactor = smoothstep(focusBand * 0.35, focusBand * 1.35, dist) * blurAmount;
 
       vec4 color = vec4(0.0);
-      float totalWeight = 0.0;
 
-      if (blurFactor > 0.005) {
+      if (blurFactor >= 0.001) {
         vec2 texelSize = vec2(1.0) / resolution;
-        vec2 blurStep = texelSize * blurFactor * 13.0;
+        float radius = 5.2 * blurFactor;
 
-        vec2 offsets[9];
-        offsets[0] = vec2(0.0, 0.0);
-        offsets[1] = vec2(0.0, 1.0);
-        offsets[2] = vec2(0.0, -1.0);
-        offsets[3] = vec2(1.0, 0.0);
-        offsets[4] = vec2(-1.0, 0.0);
-        offsets[5] = vec2(0.707, 0.707);
-        offsets[6] = vec2(-0.707, 0.707);
-        offsets[7] = vec2(0.707, -0.707);
-        offsets[8] = vec2(-0.707, -0.707);
+        float dither = getDither(gl_FragCoord.xy + vec2(17.3, 31.7));
+        float ditherOffset = (dither - 0.5) * 0.95;
+        float crossJitter = (fract(dither * 5.7139) - 0.5) * 0.40;
 
-        float weights[9];
-        weights[0] = 0.22;
-        weights[1] = 0.12; weights[2] = 0.12;
-        weights[3] = 0.12; weights[4] = 0.12;
+        float offsets[11];
+        offsets[0] = 0.0;
+        offsets[1] = 0.85;  offsets[2] = -0.85;
+        offsets[3] = 1.80;  offsets[4] = -1.80;
+        offsets[5] = 2.85;  offsets[6] = -2.85;
+        offsets[7] = 3.95;  offsets[8] = -3.95;
+        offsets[9] = 5.10;  offsets[10] = -5.10;
+
+        float weights[11];
+        weights[0] = 0.20;
+        weights[1] = 0.16;  weights[2] = 0.16;
+        weights[3] = 0.12;  weights[4] = 0.12;
         weights[5] = 0.075; weights[6] = 0.075;
-        weights[7] = 0.075; weights[8] = 0.075;
+        weights[7] = 0.040; weights[8] = 0.040;
+        weights[9] = 0.015; weights[10] = 0.015;
 
-        for (int i = 0; i < 9; i++) {
-          color += texture2D(tDiffuse, vUv + offsets[i] * blurStep) * weights[i];
+        float totalWeight = 0.0;
+        for (int i = 0; i < 11; i++) {
+          float tapPos = offsets[i] + ditherOffset;
+          vec2 sampleUv = vUv + vec2(crossJitter * radius * texelSize.x, tapPos * radius * texelSize.y);
+          color += texture2D(tDiffuse, sampleUv) * weights[i];
           totalWeight += weights[i];
         }
         color /= totalWeight;
@@ -1382,17 +1476,21 @@ function animate() {
     targetTiltBlur = (isZoomedIn || activeMarkerGroup) ? 1.0 : 0.0;
     currentTiltBlur += (targetTiltBlur - currentTiltBlur) * 0.08;
 
-    if (tiltShiftPass) {
-      tiltShiftPass.uniforms.blurAmount.value = currentTiltBlur;
+    if (tiltShiftPassH && tiltShiftPassV) {
+      tiltShiftPassH.uniforms.blurAmount.value = currentTiltBlur;
+      tiltShiftPassV.uniforms.blurAmount.value = currentTiltBlur;
 
       // Track active focused landmark on screen Y
       if (activeMarkerGroup && isZoomedIn) {
         const wp = getModelWorldPos(activeMarkerGroup);
         const scr = worldToScreen(wp);
         const normY = 1.0 - (scr.y / (renderer.domElement.clientHeight || window.innerHeight));
-        tiltShiftPass.uniforms.focusY.value = THREE.MathUtils.clamp(normY, 0.2, 0.8);
+        const clampY = THREE.MathUtils.clamp(normY, 0.2, 0.8);
+        tiltShiftPassH.uniforms.focusY.value = clampY;
+        tiltShiftPassV.uniforms.focusY.value = clampY;
       } else {
-        tiltShiftPass.uniforms.focusY.value = 0.5;
+        tiltShiftPassH.uniforms.focusY.value = 0.5;
+        tiltShiftPassV.uniforms.focusY.value = 0.5;
       }
     }
 
@@ -2048,13 +2146,19 @@ function setupCinematicMode() {
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
-    tiltShiftPass = new ShaderPass(CinematicTiltShiftShader);
+    tiltShiftPassH = new ShaderPass(CinematicTiltShiftHShader);
+    tiltShiftPassV = new ShaderPass(CinematicTiltShiftVShader);
+    tiltShiftPass = tiltShiftPassV; // alias for safety
+
     const container = renderer.domElement;
-    tiltShiftPass.uniforms.resolution.value.set(
-      container.clientWidth || window.innerWidth,
-      container.clientHeight || window.innerHeight
-    );
-    composer.addPass(tiltShiftPass);
+    const w = container.clientWidth || window.innerWidth;
+    const h = container.clientHeight || window.innerHeight;
+
+    tiltShiftPassH.uniforms.resolution.value.set(w, h);
+    tiltShiftPassV.uniforms.resolution.value.set(w, h);
+
+    composer.addPass(tiltShiftPassH);
+    composer.addPass(tiltShiftPassV);
 
     const outputPass = new OutputPass();
     composer.addPass(outputPass);
@@ -2097,8 +2201,9 @@ function toggleCinematicMode(enable) {
   });
 
   // Clear any active tilt-shift blur when switching off
-  if (!isCinematicMode && tiltShiftPass) {
-    tiltShiftPass.uniforms.blurAmount.value = 0.0;
+  if (!isCinematicMode) {
+    if (tiltShiftPassH) tiltShiftPassH.uniforms.blurAmount.value = 0.0;
+    if (tiltShiftPassV) tiltShiftPassV.uniforms.blurAmount.value = 0.0;
     currentTiltBlur = 0.0;
     targetTiltBlur = 0.0;
   }
@@ -2589,8 +2694,11 @@ function onResize() {
   if (composer) {
     composer.setSize(width, height);
   }
-  if (tiltShiftPass) {
-    tiltShiftPass.uniforms.resolution.value.set(width, height);
+  if (tiltShiftPassH) {
+    tiltShiftPassH.uniforms.resolution.value.set(width, height);
+  }
+  if (tiltShiftPassV) {
+    tiltShiftPassV.uniforms.resolution.value.set(width, height);
   }
 }
 
