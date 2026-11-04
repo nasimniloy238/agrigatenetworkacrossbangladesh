@@ -135,8 +135,8 @@ export const MAP_CONFIG = {
       district: "Barisal",
       type: "CBF",
       phone: "+880 1335-076301",
-      address: "Hatem Mir Dighi, Kashipur, Barishal",
-      mapUrl: "https://maps.app.goo.gl/nEb4LvA9h8w43NQV8",
+      address: "Mira Dighir Par, Kashipur, Barishal-8200",
+      mapUrl: "https://maps.app.goo.gl/Bx3CJxAJkpFMdnuS7",
     },
     {
       id: "cbf-chattagong",
