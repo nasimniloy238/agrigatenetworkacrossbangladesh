@@ -190,7 +190,7 @@ export const MAP_CONFIG = {
       branchName: "Egg Warehouse (Mohammadpur)",
       district: "Dhaka",
       type: "Egg Warehouse",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719623",
       address: "Bashbari, Mondir Road, Mohammadpur, Dhaka",
     },
     {
@@ -198,7 +198,7 @@ export const MAP_CONFIG = {
       branchName: "Egg Warehouse (Tejgaon)",
       district: "Dhaka",
       type: "Egg Warehouse",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719624",
       address: "Tejgaon Station Road, Tejgaon, Dhaka",
     },
     {
@@ -206,19 +206,19 @@ export const MAP_CONFIG = {
       branchName: "Egg Warehouse (Shakhipur)",
       district: "Tangail",
       type: "Egg Warehouse",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719625",
       address: "Ghorbari Bazar, Shakhipur, Tangail",
     },
 
     // ----------------------------------------------------------
-    //  4. Supply Chain — 14 Core SCM Hubs
+    //  4. Supply Chain — 17 Core SCM Hubs
     // ----------------------------------------------------------
     {
       id: "scm-naogaon",
       branchName: "Naogaon Supply Chain Hub",
       district: "Naogaon",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1951-041733",
       address: "Kathaltali, BSCIC, Naogaon",
     },
     {
@@ -226,7 +226,7 @@ export const MAP_CONFIG = {
       branchName: "Barisal Supply Chain Hub",
       district: "Barisal",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1951-041733",
       address: "Muladi, Barisal",
     },
     {
@@ -234,7 +234,7 @@ export const MAP_CONFIG = {
       branchName: "Dinajpur Supply Chain Hub",
       district: "Dinajpur",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719676",
       address: "Dinajpur Sadar, Dinajpur",
     },
     {
@@ -242,7 +242,7 @@ export const MAP_CONFIG = {
       branchName: "Chapainawabganj Supply Chain Hub",
       district: "Chapainababganj",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719613",
       address: "Jamtala, Chapainababganj",
     },
     {
@@ -250,7 +250,7 @@ export const MAP_CONFIG = {
       branchName: "Rangpur Supply Chain Hub",
       district: "Rangpur",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719613",
       address: "Dimla, Dalia, Rangpur",
     },
     {
@@ -258,7 +258,7 @@ export const MAP_CONFIG = {
       branchName: "Bogura Supply Chain Hub",
       district: "Bogura",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719613",
       address: "Mithapukur, Bogura",
     },
     {
@@ -266,7 +266,7 @@ export const MAP_CONFIG = {
       branchName: "Chuadanga Supply Chain Hub",
       district: "Chuadanga",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1797-262927",
       address: "Alamdanga, Chuadanga Sadar, Chuadanga",
     },
     {
@@ -274,7 +274,7 @@ export const MAP_CONFIG = {
       branchName: "Thakurgaon Supply Chain Hub",
       district: "Thakurgaon",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719631",
       address: "Pirganj, Haripur, Thakurgaon",
     },
     {
@@ -282,7 +282,7 @@ export const MAP_CONFIG = {
       branchName: "Nilphamari Supply Chain Hub",
       district: "Nilphamari",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719676",
       address: "Nilphamari Sadar, Nilphamari",
     },
     {
@@ -290,7 +290,7 @@ export const MAP_CONFIG = {
       branchName: "Panchagarh Supply Chain Hub",
       district: "Panchagarh",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719676",
       address: "Debiganj, Tetulia, Panchagarh",
     },
     {
@@ -298,7 +298,7 @@ export const MAP_CONFIG = {
       branchName: "Jhenaidah Supply Chain Hub",
       district: "Jhinaidaha",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1797-262927",
       address: "Jhinaidaha Sadar, Jhinaidaha",
     },
     {
@@ -306,7 +306,7 @@ export const MAP_CONFIG = {
       branchName: "Kushtia Supply Chain Hub",
       district: "Kushtia",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1797-262927",
       address: "Kushtia Sadar, Kushtia",
     },
     {
@@ -314,7 +314,7 @@ export const MAP_CONFIG = {
       branchName: "Manikganj Supply Chain Hub",
       district: "Manikganj",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1313-719637",
       address: "Ghior, Shibaloy, Manikganj",
     },
     {
@@ -322,7 +322,7 @@ export const MAP_CONFIG = {
       branchName: "Narayanganj Supply Chain Hub",
       district: "Narayanganj",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1740-474164",
       address: "Boidderbazar, Ladurchor, Narayanganj",
     },
     {
@@ -330,7 +330,7 @@ export const MAP_CONFIG = {
       branchName: "Lakshmipur Supply Chain Hub",
       district: "Lakshmipur",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1740-474164",
       address: "Lakshmipur",
     },
     {
@@ -338,7 +338,7 @@ export const MAP_CONFIG = {
       branchName: "Chandpur Supply Chain Hub",
       district: "Chandpur",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1740-474164",
       address: "Chandpur",
     },
     {
@@ -346,7 +346,7 @@ export const MAP_CONFIG = {
       branchName: "Lalmonirhat Supply Chain Hub",
       district: "Lalmonirhat",
       type: "Supply Chain",
-      phone: "+880 1324-741620",
+      phone: "+880 1740-474164",
       address: "Lalmonirhat",
     },
 

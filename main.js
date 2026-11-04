@@ -11,8 +11,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=45';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=45';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=48';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=48';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
