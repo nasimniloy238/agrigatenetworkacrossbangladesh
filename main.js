@@ -11,8 +11,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=44';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=44';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=45';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=45';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -1123,12 +1123,12 @@ function createSingleMarker(worldPos, data) {
   });
   const pad = new THREE.Mesh(padGeo, padMat);
   pad.rotation.x = -Math.PI / 2;
-  pad.position.y = 0.201;
+  pad.position.y = 0.002;
   pad.renderOrder = 10;
   group.add(pad);
 
-  // Water Drop Expanding Ripple Rings (0.1 higher, directly under the branch)
-  const rippleY = 0.202;
+  // Water Drop Expanding Ripple Rings (hairline offset directly under the branch)
+  const rippleY = 0.003;
   const ripples = [];
   for (let r = 0; r < 2; r++) {
     const rGeo = new THREE.RingGeometry(baseRadius * 0.82, baseRadius, 32);
@@ -1144,7 +1144,7 @@ function createSingleMarker(worldPos, data) {
     });
     const rMesh = new THREE.Mesh(rGeo, rMat);
     rMesh.rotation.x = -Math.PI / 2;
-    rMesh.position.y = rippleY + r * 0.001;
+    rMesh.position.y = rippleY + r * 0.0005;
     rMesh.renderOrder = 11;
     group.add(rMesh);
     ripples.push(rMesh);
@@ -1177,8 +1177,8 @@ function createSingleMarker(worldPos, data) {
     group.add(modelMesh);
   }
 
-  // Reposition 0.1 higher and rotate horizontally 90 degrees right (North to East)
-  modelMesh.position.y = 0.1;
+  // Reposition to hairline 0.005 baseline offset to sit flush on terrain surface without z-fighting
+  modelMesh.position.y = 0.005;
   modelMesh.rotation.y = -Math.PI / 2;
 
   const markerKey = data.id || (isHQ ? 'hq' : (data.branchName || 'branch_' + markerObjects.length));
@@ -1187,7 +1187,8 @@ function createSingleMarker(worldPos, data) {
   if (savedTransforms[markerKey]) {
     const st = savedTransforms[markerKey];
     if (st.position) {
-      modelMesh.position.set(st.position.x, st.position.y, st.position.z);
+      const posY = (Math.abs(st.position.y - 0.1) < 0.001) ? 0.005 : st.position.y;
+      modelMesh.position.set(st.position.x, posY, st.position.z);
     }
     if (st.rotation) {
       modelMesh.rotation.set(
@@ -1590,17 +1591,17 @@ function syncMarkerAttachments(markerGroup) {
   const py = modelMesh.position.y;
   const pz = modelMesh.position.z;
 
-  // Base ground disc directly beneath 3D model (elevated 0.1 higher so it's always clearly visible)
-  const padY = Math.max(0.101, py + 0.101);
+  // Base ground disc directly beneath 3D model (hairline baseline offset above terrain to prevent z-fighting)
+  const padY = Math.max(0.002, py - 0.002);
   if (padMesh) {
     padMesh.position.set(px, padY, pz);
   }
 
-  // Water drop ripple rings directly under 3D model (elevated 0.1 higher)
-  const rippleY = Math.max(0.102, py + 0.102);
+  // Water drop ripple rings directly under 3D model
+  const rippleY = Math.max(0.003, py - 0.001);
   if (ripples) {
     ripples.forEach((rMesh, r) => {
-      rMesh.position.set(px, rippleY + r * 0.001, pz);
+      rMesh.position.set(px, rippleY + r * 0.0005, pz);
     });
   }
 
@@ -1909,7 +1910,7 @@ function setupModelEditor() {
   // Reset Sub-buttons
   document.getElementById('btn-reset-pos')?.addEventListener('click', () => {
     if (!selectedMarkerGroup) return;
-    selectedMarkerGroup.userData.modelMesh.position.set(0, 0.1, 0);
+    selectedMarkerGroup.userData.modelMesh.position.set(0, 0.005, 0);
     syncUIFromModel(selectedMarkerGroup);
     syncMarkerAttachments(selectedMarkerGroup);
     updateBeams();
@@ -2033,7 +2034,7 @@ function setupModelEditor() {
         const isBranch = m.userData.data?.type === 'CBF' || m.userData.data?.type === 'CFF';
         const defScale = isWh ? 0.01 : (isFm ? 0.015 : (isBf ? 0.03 : (isBranch ? 0.165 : 0.20)));
 
-        model.position.set(0, 0.1, 0);
+        model.position.set(0, 0.005, 0);
         model.rotation.set(0, -Math.PI / 2, 0);
         model.scale.set(defScale, defScale, defScale);
         m.userData.baseScale = defScale;

@@ -34,7 +34,7 @@ export const DEFAULT_TRANSFORMS = {
   "egg-tejgaon": {
     "position": {
       "x": -0.399,
-      "y": 0.1,
+      "y": 0.005,
       "z": -0.689
     },
     "rotation": {
@@ -47,7 +47,7 @@ export const DEFAULT_TRANSFORMS = {
   "cbf-rangpur": {
     "position": {
       "x": -0.941,
-      "y": 0.1,
+      "y": 0.005,
       "z": -0.421
     },
     "rotation": {
@@ -60,7 +60,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-rangpur": {
     "position": {
       "x": 0.176,
-      "y": 0.1,
+      "y": 0.005,
       "z": 1.007
     },
     "rotation": {
@@ -164,7 +164,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-barisal": {
     "position": {
       "x": 0.883,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0.401
     },
     "rotation": {
@@ -203,7 +203,7 @@ export const DEFAULT_TRANSFORMS = {
   "cbf-tangail": {
     "position": {
       "x": -0.304,
-      "y": 0.1,
+      "y": 0.005,
       "z": -1.051
     },
     "rotation": {
@@ -216,7 +216,7 @@ export const DEFAULT_TRANSFORMS = {
   "egg-tangail": {
     "position": {
       "x": -0.4,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0.478
     },
     "rotation": {
@@ -242,7 +242,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-dinajpur": {
     "position": {
       "x": -1.076,
-      "y": 0.1,
+      "y": 0.005,
       "z": -0.637
     },
     "rotation": {
@@ -307,7 +307,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-thakurgaon": {
     "position": {
       "x": -0.706,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0.002
     },
     "rotation": {
@@ -320,7 +320,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-nilphamari": {
     "position": {
       "x": 0.281,
-      "y": 0.1,
+      "y": 0.005,
       "z": -0.979
     },
     "rotation": {
@@ -333,7 +333,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-panchagarh": {
     "position": {
       "x": 0,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0
     },
     "rotation": {
@@ -372,7 +372,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-manikganj": {
     "position": {
       "x": 0,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0
     },
     "rotation": {
@@ -385,7 +385,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-narayanganj": {
     "position": {
       "x": 0,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0
     },
     "rotation": {
@@ -398,7 +398,7 @@ export const DEFAULT_TRANSFORMS = {
   "factory-bogura": {
     "position": {
       "x": 0.149,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0.739
     },
     "rotation": {
@@ -411,7 +411,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-lakshmipur": {
     "position": {
       "x": 0,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0
     },
     "rotation": {
@@ -424,7 +424,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-chandpur": {
     "position": {
       "x": 0,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0
     },
     "rotation": {
@@ -437,7 +437,7 @@ export const DEFAULT_TRANSFORMS = {
   "scm-lalmonirhat": {
     "position": {
       "x": 0,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0
     },
     "rotation": {
@@ -450,7 +450,7 @@ export const DEFAULT_TRANSFORMS = {
   "factory-sirajganj": {
     "position": {
       "x": 0.407,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0.161
     },
     "rotation": {
@@ -463,7 +463,7 @@ export const DEFAULT_TRANSFORMS = {
   "factory-gaibandha": {
     "position": {
       "x": 0.889,
-      "y": 0.1,
+      "y": 0.005,
       "z": -0.47
     },
     "rotation": {
@@ -476,7 +476,7 @@ export const DEFAULT_TRANSFORMS = {
   "factory-jaipurhat": {
     "position": {
       "x": 0.383,
-      "y": 0.1,
+      "y": 0.005,
       "z": 0
     },
     "rotation": {
