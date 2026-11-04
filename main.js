@@ -11,8 +11,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=48';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=48';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=49';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=49';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -1570,6 +1570,12 @@ function loadSavedTransforms() {
           localData[k].scale = 0.165;
         }
       });
+      // Upgrade stale cbf-barisal position if displaced outside Barisal
+      if (localData['cbf-barisal'] && localData['cbf-barisal'].position && Math.abs(localData['cbf-barisal'].position.x - (-0.785)) < 0.05) {
+        localData['cbf-barisal'].position.x = DEFAULT_TRANSFORMS['cbf-barisal'].position.x;
+        localData['cbf-barisal'].position.y = DEFAULT_TRANSFORMS['cbf-barisal'].position.y;
+        localData['cbf-barisal'].position.z = DEFAULT_TRANSFORMS['cbf-barisal'].position.z;
+      }
       savedTransforms = { ...savedTransforms, ...localData };
     }
   } catch (e) {
@@ -2618,7 +2624,7 @@ function showPopup(markerGroup, data, isHQ) {
         <div class="popup-icon">
           <svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
         </div>
-        <a href="https://maps.google.com/?q=${encodeURIComponent(address + ', Bangladesh')}" target="_blank" rel="noopener">${address}</a>
+        <a href="${data.mapUrl || `https://maps.google.com/?q=${encodeURIComponent(address + ', Bangladesh')}`}" target="_blank" rel="noopener">${address}</a>
       </div>` : ''}
     <div class="popup-arrow bottom"></div>
   `;

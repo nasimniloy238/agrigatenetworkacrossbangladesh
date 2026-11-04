@@ -150,9 +150,9 @@ export const DEFAULT_TRANSFORMS = {
   },
   "cbf-barisal": {
     "position": {
-      "x": -0.785,
-      "y": 0.016,
-      "z": -0.895
+      "x": -0.3,
+      "y": 0.005,
+      "z": -0.1
     },
     "rotation": {
       "x": 0,
