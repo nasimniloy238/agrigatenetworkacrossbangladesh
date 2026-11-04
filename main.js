@@ -7,8 +7,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=41';
-import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=41';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { MAP_CONFIG, BRANCH_TYPES } from './data.js?v=42';
+import { DEFAULT_TRANSFORMS } from './modelTransforms.js?v=42';
 import { BANGLADESH_GEO } from './bangladeshGeo.js';
 
 // ============================================================
@@ -38,6 +42,15 @@ let navBranchIndicator = null;
 let navArrowPrev = null;
 let navArrowNext = null;
 
+// High-End Cinematic Mode State (Sunlight, Shadows, Tilt-Shift)
+let isCinematicMode = false;
+let sunLight = null;
+let composer = null;
+let tiltShiftPass = null;
+let cinematicBtn = null;
+let targetTiltBlur = 0.0;
+let currentTiltBlur = 0.0;
+
 // Auto-Panning State
 let isAutoPanning = false;
 let autoPanResumeTimer = null;
@@ -52,6 +65,90 @@ let savedTransforms = {};
 const MAP_DEPTH = 0.3;
 const gltfLoader = new GLTFLoader();
 const MODEL_TEMPLATES = {};
+
+// ============================================================
+//  CINEMATIC POST-PROCESSING SHADERS (TILT-SHIFT & VIGNETTE)
+// ============================================================
+const CinematicTiltShiftShader = {
+  name: 'CinematicTiltShiftShader',
+  uniforms: {
+    tDiffuse: { value: null },
+    resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    focusY: { value: 0.5 },
+    focusBand: { value: 0.22 },
+    blurAmount: { value: 0.0 },
+    vignetteAmount: { value: 0.30 },
+    contrast: { value: 1.06 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform vec2 resolution;
+    uniform float focusY;
+    uniform float focusBand;
+    uniform float blurAmount;
+    uniform float vignetteAmount;
+    uniform float contrast;
+    varying vec2 vUv;
+
+    void main() {
+      float dist = abs(vUv.y - focusY);
+      float blurFactor = smoothstep(focusBand * 0.45, focusBand * 1.45, dist) * blurAmount;
+
+      vec4 color = vec4(0.0);
+      float totalWeight = 0.0;
+
+      if (blurFactor > 0.005) {
+        vec2 texelSize = vec2(1.0) / resolution;
+        vec2 blurStep = texelSize * blurFactor * 13.0;
+
+        vec2 offsets[9];
+        offsets[0] = vec2(0.0, 0.0);
+        offsets[1] = vec2(0.0, 1.0);
+        offsets[2] = vec2(0.0, -1.0);
+        offsets[3] = vec2(1.0, 0.0);
+        offsets[4] = vec2(-1.0, 0.0);
+        offsets[5] = vec2(0.707, 0.707);
+        offsets[6] = vec2(-0.707, 0.707);
+        offsets[7] = vec2(0.707, -0.707);
+        offsets[8] = vec2(-0.707, -0.707);
+
+        float weights[9];
+        weights[0] = 0.22;
+        weights[1] = 0.12; weights[2] = 0.12;
+        weights[3] = 0.12; weights[4] = 0.12;
+        weights[5] = 0.075; weights[6] = 0.075;
+        weights[7] = 0.075; weights[8] = 0.075;
+
+        for (int i = 0; i < 9; i++) {
+          color += texture2D(tDiffuse, vUv + offsets[i] * blurStep) * weights[i];
+          totalWeight += weights[i];
+        }
+        color /= totalWeight;
+      } else {
+        color = texture2D(tDiffuse, vUv);
+      }
+
+      // Subtle contrast punch
+      vec3 rgb = color.rgb;
+      rgb = (rgb - 0.5) * contrast + 0.5;
+
+      // Soft cinematic optical vignette
+      vec2 coord = (vUv - 0.5) * 2.0;
+      float rf = length(coord);
+      float vignette = 1.0 - smoothstep(0.85, 1.55, rf) * vignetteAmount;
+      rgb *= vignette;
+
+      gl_FragColor = vec4(rgb, color.a);
+    }
+  `
+};
 
 // ============================================================
 //  HELPERS & COORDINATE LOOKUPS
@@ -605,6 +702,7 @@ async function init() {
     setupHQBadge();
     setupResetButton();
     setupCategoryNavigation();
+    setupCinematicMode();
     setupModelEditor();
 
     // Event listeners
@@ -643,6 +741,22 @@ function createLighting() {
   const fillLight = new THREE.DirectionalLight(0x1abc9c, 0.45);
   fillLight.position.set(-14, 18, -12);
   scene.add(fillLight);
+
+  // Simulated Sun Light for High-End Cinematic Mode (casts shadows when turned ON)
+  sunLight = new THREE.DirectionalLight(0xfff6e8, 1.85);
+  sunLight.position.set(11, 26, 13);
+  sunLight.castShadow = false; // Turned OFF by default
+  sunLight.shadow.mapSize.width = 2048;
+  sunLight.shadow.mapSize.height = 2048;
+  sunLight.shadow.camera.near = 1.0;
+  sunLight.shadow.camera.far = 70;
+  sunLight.shadow.camera.left = -11;
+  sunLight.shadow.camera.right = 11;
+  sunLight.shadow.camera.top = 13;
+  sunLight.shadow.camera.bottom = -13;
+  sunLight.shadow.bias = -0.0004;
+  sunLight.shadow.normalBias = 0.02;
+  scene.add(sunLight);
 
   // Subtle Dhaka HQ point light (emerald green)
   const hqPos = getDistrictWorldPos(MAP_CONFIG.headquarters.district);
@@ -750,6 +864,7 @@ function createDistrictMap() {
 
       const mesh = new THREE.Mesh(geom, mat);
       mesh.position.y = MAP_DEPTH;
+      mesh.receiveShadow = true;
       mesh.userData = {
         isDistrict: true,
         district: dData.district,
@@ -766,6 +881,7 @@ function createDistrictMap() {
         side: THREE.DoubleSide,
       });
       const sideMesh = new THREE.Mesh(sideGeom, sideMat);
+      sideMesh.receiveShadow = true;
       sideMesh.userData = {
         isDistrict: true,
         isDistrictSide: true,
@@ -1261,7 +1377,29 @@ function animate() {
   updateHQBadgePosition();
   updatePopupPosition();
 
-  renderer.render(scene, camera);
+  if (isCinematicMode && composer) {
+    // Dynamic Tilt-Shift: activate smoothly when zoomed in or inspecting a landmark
+    targetTiltBlur = (isZoomedIn || activeMarkerGroup) ? 1.0 : 0.0;
+    currentTiltBlur += (targetTiltBlur - currentTiltBlur) * 0.08;
+
+    if (tiltShiftPass) {
+      tiltShiftPass.uniforms.blurAmount.value = currentTiltBlur;
+
+      // Track active focused landmark on screen Y
+      if (activeMarkerGroup && isZoomedIn) {
+        const wp = getModelWorldPos(activeMarkerGroup);
+        const scr = worldToScreen(wp);
+        const normY = 1.0 - (scr.y / (renderer.domElement.clientHeight || window.innerHeight));
+        tiltShiftPass.uniforms.focusY.value = THREE.MathUtils.clamp(normY, 0.2, 0.8);
+      } else {
+        tiltShiftPass.uniforms.focusY.value = 0.5;
+      }
+    }
+
+    composer.render();
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
 // ============================================================
@@ -1896,6 +2034,77 @@ function updateNavUI() {
 }
 
 // ============================================================
+//  HIGH-END CINEMATIC MODE (SUNLIGHT, SHADOWS, AO & TILT-SHIFT)
+// ============================================================
+function setupCinematicMode() {
+  cinematicBtn = document.getElementById('cinematic-toggle-btn');
+  cinematicBtn?.addEventListener('click', () => {
+    toggleCinematicMode(!isCinematicMode);
+  });
+
+  // Initialize post-processing composer for high-end cinematic rendering
+  try {
+    composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    tiltShiftPass = new ShaderPass(CinematicTiltShiftShader);
+    const container = renderer.domElement;
+    tiltShiftPass.uniforms.resolution.value.set(
+      container.clientWidth || window.innerWidth,
+      container.clientHeight || window.innerHeight
+    );
+    composer.addPass(tiltShiftPass);
+
+    const outputPass = new OutputPass();
+    composer.addPass(outputPass);
+  } catch (err) {
+    console.warn('Post-processing composer init deferred:', err);
+  }
+}
+
+function toggleCinematicMode(enable) {
+  isCinematicMode = !!enable;
+
+  if (cinematicBtn) {
+    cinematicBtn.classList.toggle('active', isCinematicMode);
+  }
+
+  if (sunLight) {
+    sunLight.castShadow = isCinematicMode;
+  }
+
+  renderer.shadowMap.enabled = isCinematicMode;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.needsUpdate = true;
+
+  // Enhance contact shadows / AO underneath landmarks
+  markerObjects.forEach(m => {
+    if (m.userData.padMesh) {
+      m.userData.padMesh.material.opacity = isCinematicMode ? 0.42 : 0.25;
+    }
+  });
+
+  // Ensure scene materials compile shadow map shaders cleanly
+  scene.traverse((obj) => {
+    if (obj.isMesh && obj.material) {
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach(mat => { mat.needsUpdate = true; });
+      } else {
+        obj.material.needsUpdate = true;
+      }
+    }
+  });
+
+  // Clear any active tilt-shift blur when switching off
+  if (!isCinematicMode && tiltShiftPass) {
+    tiltShiftPass.uniforms.blurAmount.value = 0.0;
+    currentTiltBlur = 0.0;
+    targetTiltBlur = 0.0;
+  }
+}
+
+// ============================================================
 //  AUTO SLOW CAMERA PANNING (ORBITAL SWEEP)
 // ============================================================
 function onControlsInteractionStart() {
@@ -2376,6 +2585,13 @@ function onResize() {
 
   updatePopupPosition();
   updateHQBadgePosition();
+
+  if (composer) {
+    composer.setSize(width, height);
+  }
+  if (tiltShiftPass) {
+    tiltShiftPass.uniforms.resolution.value.set(width, height);
+  }
 }
 
 // Start
